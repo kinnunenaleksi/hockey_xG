@@ -1,0 +1,195 @@
+---
+title: "NHL xG"
+output: 
+  html_document:
+    theme: darkly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(sportyR)
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(readr)
+```
+
+### Overview 
+
+The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is from Kaggle (hyperlink) and the main resources utilized are the following: 
+
+* https://www.kaggle.com/datasets/martinellis/nhl-game-data?resource=download&select=table_relationships.JPG
+* * https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R
+
+Loading the data and creating a variable for shot data 
+
+```{r load_data}
+game_plays <- read.csv("/Users/aleksi/Downloads/archive/game_plays.csv")
+head(game_plays)
+```
+
+```{r, cache =TRUE}
+shots <- game_plays %>%
+  filter(event %in% c("Goal", "Shot")) %>%
+  select(team_id_for, event, st_x, st_y, secondaryType)
+
+#mutate(goal = as.integer(ifelse(shots$event == "Goal", 1,0)))
+shots$goal <- as.integer(ifelse(shots$event == "Goal", 1,0))
+
+head(shots)
+```
+
+
+Creating local variables for x and y cordinates
+```{r}
+x <- abs(shots$st_x)
+y <- shots$st_y
+
+```
+
+
+Creating functions for distance and angle. Distance is calculated by 
+```{r functions}
+distance <- function(x_pos, y_pos) {
+  sqrt((89 - abs(x_pos))^2 + y_pos^2)
+}
+
+angle_theta<- function(x_pos, y_pos) {
+  x_temp <- abs(89 - abs(x_pos))
+    ifelse((x_temp)^2 + (y_pos)^2 >= 9, atan((6 * abs(x_temp))/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi,
+    180 + atan((6 * x_temp)/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi)
+}
+
+## Making sure our range is correct 
+range(angle_theta(x,y),na.rm=TRUE)
+
+## Adding columns for distance and angle
+shots <- shots %>%
+  mutate(distance = distance(shots$st_x, shots$st_y),
+                    angle = angle_theta(shots$st_x, shots$st_y))
+
+head(shots)
+```
+
+
+```{r, Histograms, fig.show="hold", out.width="50%"}
+par(mar = c(4, 4, .1, .1))
+ggplot(shots, aes(x=shots$angle)) +
+  geom_histogram(binwidth = 3,
+                 center = 0,
+                 color = "black",
+                 fill = "white") +
+  scale_x_continuous(limits = c(0, 180)) +
+  theme_bw() +
+  theme(panel.border = element_blank()) + 
+  theme(panel.grid.major = element_blank()) +
+  theme(panel.grid.minor = element_blank()) + 
+  xlab("Angle") + 
+  ylab(element_blank()) + 
+  ggtitle("Histogram of Shot Angles")
+
+ggplot(shots, aes(x=distance)) +
+    geom_histogram(binwidth = 6,
+                   center = 0,
+                   color = "black",
+                   fill = "white") +
+    scale_x_continuous(limits = c(0, 180)) +
+    theme_bw() +
+  theme(panel.border = element_blank()) + 
+    theme(panel.grid.major = element_blank()) +
+    theme(panel.grid.minor = element_blank()) + 
+    xlab("Distance") + 
+    ylab(element_blank()) + 
+    ggtitle("Histogram of Shot Distances")
+```
+
+```{r Bins, fig.show="hold", out.width="50%", cache = TRUE}
+
+bins_distance <- aggregate(shots,
+                   by=list(cut(shots$distance, seq(0,100,10))),
+                   mean)
+
+bins_angle <- aggregate(shots,
+                  by=list(cut(shots$angle, seq(0,180,10))),
+                  mean)
+
+## Changing the first column to numeric values so that ggplot geom_smooth works
+bins_distance$Group.1 <- as.numeric(bins_distance$Group.1)
+bins_angle$Group.1 <- as.numeric(bins_angle$Group.1)
+
+angles <- as.character(seq(0, 180, 10))
+distances <- as.character(seq(0, 90, 10))
+
+
+ggplot(bins_distance, aes(x= bins_distance$Group.1, y =  bins_distance$goal)) +
+                          geom_point() +
+                          geom_line() +
+                          theme_bw() + 
+                          xlab("Distance to goal (Feet)") +
+                          ylab("Probability of Goal") + 
+                          scale_x_discrete(limits = distances)
+                          
+ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
+  geom_point() +
+  geom_smooth(method=lm, se = F) + 
+  theme_bw() +
+  xlab("Angle to Goal") +
+  ylab("Probability of Goal") + 
+  ggtitle("Probability of Goal Given the Distance") +
+  scale_x_discrete(limits = angles)
+```
+Splitting the data into training set and test set 
+```{r}
+#train_test_split <- initial_split(data = shots, prop = 0.7)
+
+#train_data <- train_test_split %>%
+  #training()
+#test_data <- train_test_split %>%
+  #testing()
+```
+```{r LPM}
+
+LPM <- lm(goal ~ distance + angle, data = shots)
+summary(LPM)
+
+ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
+  geom_point() + geom_smooth(method = "lm", se = F)
+
+```
+```{r}
+logit <- glm(goal ~ distance + angle,
+             family = binomial(link = 'logit'),
+             data = shots)
+
+ggplot(logit, aes(x=distance, y =goal)) +
+  geom_point() + geom_smooth(method = "glm", se = F)
+```
+
+
+
+
+
+
+* https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/
+
+* https://www.datofutbol.cl/xg-model/
+
+* https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752
+
+
+
+* https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html
+
+* https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html
+
+* https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb
+
+
+
+
+
+
+
+
+
+
