@@ -19,7 +19,7 @@ library(dplyr)
 library(knitr)
 require(tidymodels)
 ```
-
+## Testing Header
 ### Overview and Scope
 
 The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
