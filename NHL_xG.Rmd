@@ -1,8 +1,12 @@
 ---
 title: "NHL xG"
-output: 
+output:
   html_document:
-    theme: darkly
+    toc: true
+    code_folding: show
+    mathjax: local
+    self_contained: false
+header-includes: -\usepackage{bbm}
 ---
 
 ```{r setup, include=FALSE}
@@ -10,57 +14,76 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 library(sportyR)
 library(ggplot2)
 library(tidyverse)
-library(dplyr)
 library(readr)
+library(dplyr)
+library(knitr)
+require(tidymodels)
 ```
 
-### Overview 
+### Overview and Scope
 
-The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is from Kaggle (hyperlink) and the main resources utilized are the following: 
+The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
 
-* https://www.kaggle.com/datasets/martinellis/nhl-game-data?resource=download&select=table_relationships.JPG
-* * https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R
+Valuable sources have been: 
+
+* https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R
+* https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/
+* https://www.datofutbol.cl/xg-model/
+* https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752
+* https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html
+* https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html
+* https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb
+
+
+## Data Wrangling
 
 Loading the data and creating a variable for shot data 
+```{r load_data, cache = TRUE, R.options = list(width = 10000)}
+game_plays <- read.csv("~/Downloads/archive/game_plays.csv")
 
-```{r load_data}
-game_plays <- read.csv("/Users/aleksi/Downloads/archive/game_plays.csv")
+## Making sure the data looks correct
 head(game_plays)
 ```
 
-```{r, cache =TRUE}
+Parsing the data to include only the shots and goals
+```{r shots}
 shots <- game_plays %>%
   filter(event %in% c("Goal", "Shot")) %>%
   select(team_id_for, event, st_x, st_y, secondaryType)
 
 #mutate(goal = as.integer(ifelse(shots$event == "Goal", 1,0)))
+## Creating a new column for a binary response variable if a shot was a goal or not
 shots$goal <- as.integer(ifelse(shots$event == "Goal", 1,0))
-
-head(shots)
 ```
-
 
 Creating local variables for x and y cordinates
-```{r}
+```{r cordinates}
+
+##Taking the absolute value to have all the shots in the same horizontal axis
 x <- abs(shots$st_x)
 y <- shots$st_y
-
 ```
 
-
 Creating functions for distance and angle. Distance is calculated by 
+
+$c^2 = a^2 + b^2 \Rightarrow c = \sqrt{a^2 + b^2 }$
+
+The angle to the goal is calculated as follows, 
+
+$\tan \theta = \frac{\text{goal width } * x }{x^2 + y^2 - (\frac{\text{goal width}}{2})^2 }$
+
 ```{r functions}
 distance <- function(x_pos, y_pos) {
   sqrt((89 - abs(x_pos))^2 + y_pos^2)
 }
 
-angle_theta<- function(x_pos, y_pos) {
+angle_theta <- function(x_pos, y_pos) {
   x_temp <- abs(89 - abs(x_pos))
     ifelse((x_temp)^2 + (y_pos)^2 >= 9, atan((6 * abs(x_temp))/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi,
     180 + atan((6 * x_temp)/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi)
 }
 
-## Making sure our range is correct 
+## Making sure our range is correct, should be between 0 and 180
 range(angle_theta(x,y),na.rm=TRUE)
 
 ## Adding columns for distance and angle
@@ -70,8 +93,11 @@ shots <- shots %>%
 
 head(shots)
 ```
+## Plots
 
+### Histograms
 
+A couple of histograms from the data that show the distribution of shot distance and angle
 ```{r, Histograms, fig.show="hold", out.width="50%"}
 par(mar = c(4, 4, .1, .1))
 ggplot(shots, aes(x=shots$angle)) +
@@ -103,6 +129,8 @@ ggplot(shots, aes(x=distance)) +
     ggtitle("Histogram of Shot Distances")
 ```
 
+
+### Probability of a Goal Given Distance or Angle
 ```{r Bins, fig.show="hold", out.width="50%", cache = TRUE}
 
 bins_distance <- aggregate(shots,
@@ -147,15 +175,23 @@ Splitting the data into training set and test set
 #test_data <- train_test_split %>%
   #testing()
 ```
+
 ```{r LPM}
 
 LPM <- lm(goal ~ distance + angle, data = shots)
 summary(LPM)
 
+LPM_distance <- as.numeric(LPM$coefficients["distance"])
+LPM_angle <- as.numeric(LPM$coefficients["angle"])
+LPM_intercept <- as.numeric(LPM$coefficients["(Intercept)"])
+LPM_manual <- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
+
 ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
   geom_point() + geom_smooth(method = "lm", se = F)
 
 ```
+
+
 ```{r}
 logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
@@ -165,24 +201,26 @@ ggplot(logit, aes(x=distance, y =goal)) +
   geom_point() + geom_smooth(method = "glm", se = F)
 ```
 
+```{r}
+artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
+
+artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,artificial_shots$location_y) * LPM_distance + angle_theta(artificial_shots$location_x, artificial_shots$location_y) * LPM_angle
+
+
+
+geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1000)) +
+  scale_color_gradient(low = "white", high ="red",
+                       scales::rescale(c(0.9,0.1)))
+```
 
 
 
 
 
-* https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/
 
-* https://www.datofutbol.cl/xg-model/
-
-* https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752
-
-
-
-* https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html
-
-* https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html
-
-* https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb
 
 
 
