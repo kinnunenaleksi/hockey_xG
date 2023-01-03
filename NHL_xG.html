@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+
+
+<title>NHL xG</title>
+
+<script src="NHL_xG_files/header-attrs-2.18/header-attrs.js"></script>
+<script src="NHL_xG_files/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="NHL_xG_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="NHL_xG_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="NHL_xG_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="NHL_xG_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="NHL_xG_files/navigation-1.1/tabsets.js"></script>
+<script src="NHL_xG_files/navigation-1.1/codefolding.js"></script>
+<link href="NHL_xG_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="NHL_xG_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+details > summary > p:only-child {
+  display: inline;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before, .tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "\e259";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "\e258";
+  font-family: 'Glyphicons Halflings';
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+<style type="text/css">
+.code-folding-btn { margin-bottom: 4px; }
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div id="header">
+
+<div class="btn-group pull-right float-right">
+<button type="button" class="btn btn-default btn-xs btn-secondary btn-sm dropdown-toggle" data-toggle="dropdown" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span>Code</span> <span class="caret"></span></button>
+<ul class="dropdown-menu dropdown-menu-right" style="min-width: 50px;">
+<li><a id="rmd-show-all-code" href="#">Show All Code</a></li>
+<li><a id="rmd-hide-all-code" href="#">Hide All Code</a></li>
+</ul>
+</div>
+
+
+
+<h1 class="title toc-ignore">NHL xG</h1>
+
+</div>
+
+<div id="TOC">
+<ul>
+<li><a href="#testing-header" id="toc-testing-header">Testing Header</a>
+<ul>
+<li><a href="#overview-and-scope" id="toc-overview-and-scope">Overview
+and Scope</a></li>
+</ul></li>
+<li><a href="#data-wrangling" id="toc-data-wrangling">Data
+Wrangling</a></li>
+<li><a href="#plots" id="toc-plots">Plots</a>
+<ul>
+<li><a href="#histograms" id="toc-histograms">Histograms</a></li>
+<li><a href="#probability-of-a-goal-given-distance-or-angle"
+id="toc-probability-of-a-goal-given-distance-or-angle">Probability of a
+Goal Given Distance or Angle</a></li>
+</ul></li>
+</ul>
+</div>
+
+<div id="testing-header" class="section level2">
+<h2>Testing Header</h2>
+<div id="overview-and-scope" class="section level3">
+<h3>Overview and Scope</h3>
+<p>The aim of this project is to build different naive Expected Goals
+models using LPM, Logit, Probit and possibly xGBoost models. The data is
+obtained from <a
+href="https://www.kaggle.com/datasets/martinellis/nhl-game-data">Kaggle</a>.</p>
+<p>Valuable sources have been:</p>
+<ul>
+<li><a
+href="https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R"
+class="uri">https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R</a></li>
+<li><a
+href="https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/"
+class="uri">https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/</a></li>
+<li><a href="https://www.datofutbol.cl/xg-model/"
+class="uri">https://www.datofutbol.cl/xg-model/</a></li>
+<li><a
+href="https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752"
+class="uri">https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752</a></li>
+<li><a
+href="https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html"
+class="uri">https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html</a></li>
+<li><a
+href="https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html"
+class="uri">https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html</a></li>
+<li><a
+href="https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb"
+class="uri">https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb</a></li>
+</ul>
+</div>
+</div>
+<div id="data-wrangling" class="section level2">
+<h2>Data Wrangling</h2>
+<p>Loading the data and creating a variable for shot data</p>
+<pre class="r"><code>game_plays &lt;- read.csv(&quot;~/Downloads/archive/game_plays.csv&quot;)
+
+## Making sure the data looks correct
+head(game_plays)</code></pre>
+<pre><code>##        play_id    game_id team_id_for team_id_against          event secondaryType   x  y period periodType periodTime periodTimeRemaining            dateTime goals_away goals_home                                                                   description st_x st_y
+## 1 2016020045_1 2016020045          NA              NA Game Scheduled          &lt;NA&gt;  NA NA      1    REGULAR          0                1200 2016-10-18 23:40:58          0          0                                                                Game Scheduled   NA   NA
+## 2 2016020045_2 2016020045          NA              NA   Period Ready          &lt;NA&gt;  NA NA      1    REGULAR          0                1200 2016-10-19 01:35:28          0          0                                                                  Period Ready   NA   NA
+## 3 2016020045_3 2016020045          NA              NA   Period Start          &lt;NA&gt;  NA NA      1    REGULAR          0                1200 2016-10-19 01:40:50          0          0                                                                  Period Start   NA   NA
+## 4 2016020045_4 2016020045          16               4        Faceoff          &lt;NA&gt;   0  0      1    REGULAR          0                1200 2016-10-19 01:40:50          0          0                              Jonathan Toews faceoff won against Claude Giroux    0    0
+## 5 2016020045_5 2016020045          16               4           Shot    Wrist Shot -71  9      1    REGULAR         54                1146 2016-10-19 01:41:44          0          0                            Artem Anisimov Wrist Shot saved by Michal Neuvirth   71   -9
+## 6 2016020045_6 2016020045          16               4           Goal   Wrap-around -88  5      1    REGULAR         56                1144 2016-10-19 01:41:48          0          1 Patrick Kane (1) Wrap-around, assists: Artem Anisimov (2), Brent Seabrook (2)   88   -5</code></pre>
+<p>Parsing the data to include only the shots and goals</p>
+<pre class="r"><code>shots &lt;- game_plays %&gt;%
+  filter(event %in% c(&quot;Goal&quot;, &quot;Shot&quot;)) %&gt;%
+  select(team_id_for, event, st_x, st_y, secondaryType)
+
+#mutate(goal = as.integer(ifelse(shots$event == &quot;Goal&quot;, 1,0)))
+## Creating a new column for a binary response variable if a shot was a goal or not
+shots$goal &lt;- as.integer(ifelse(shots$event == &quot;Goal&quot;, 1,0))</code></pre>
+<p>Creating local variables for x and y cordinates</p>
+<pre class="r"><code>##Taking the absolute value to have all the shots in the same horizontal axis
+x &lt;- abs(shots$st_x)
+y &lt;- shots$st_y</code></pre>
+<p>Creating functions for distance and angle. Distance is calculated
+by</p>
+<p><span class="math inline">\(c^2 = a^2 + b^2 \Rightarrow c = \sqrt{a^2
++ b^2 }\)</span></p>
+<p>The angle to the goal is calculated as follows,</p>
+<p><span class="math inline">\(\tan \theta = \frac{\text{goal width } *
+x }{x^2 + y^2 - (\frac{\text{goal width}}{2})^2 }\)</span></p>
+<pre class="r"><code>distance &lt;- function(x_pos, y_pos) {
+  sqrt((89 - abs(x_pos))^2 + y_pos^2)
+}
+
+angle_theta &lt;- function(x_pos, y_pos) {
+  x_temp &lt;- abs(89 - abs(x_pos))
+    ifelse((x_temp)^2 + (y_pos)^2 &gt;= 9, atan((6 * abs(x_temp))/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi,
+    180 + atan((6 * x_temp)/(x_temp^2 + y_pos^2 - 3^2)) * 180 / pi)
+}
+
+## Making sure our range is correct, should be between 0 and 180
+range(angle_theta(x,y),na.rm=TRUE)</code></pre>
+<pre><code>## [1]   0 180</code></pre>
+<pre class="r"><code>## Adding columns for distance and angle
+shots &lt;- shots %&gt;%
+  mutate(distance = distance(shots$st_x, shots$st_y),
+                    angle = angle_theta(shots$st_x, shots$st_y))
+
+head(shots)</code></pre>
+<pre><code>##   team_id_for event st_x st_y secondaryType goal distance     angle
+## 1          16  Shot   71   -9    Wrist Shot    0 20.12461 15.255119
+## 2          16  Goal   88   -5   Wrap-around    1  5.09902 19.440035
+## 3           4  Shot   56   -7    Wrist Shot    0 33.73426  9.947172
+## 4          16  Shot   37   24     Slap Shot    0 57.27128  5.448598
+## 5           4  Shot   57  -20    Wrist Shot    0 37.73592  7.727217
+## 6           4  Shot   34   14     Slap Shot    0 56.75385  5.865971</code></pre>
+</div>
+<div id="plots" class="section level2">
+<h2>Plots</h2>
+<div id="histograms" class="section level3">
+<h3>Histograms</h3>
+<p>A couple of histograms from the data that show the distribution of
+shot distance and angle</p>
+<pre class="r"><code>par(mar = c(4, 4, .1, .1))
+ggplot(shots, aes(x=shots$angle)) +
+  geom_histogram(binwidth = 3,
+                 center = 0,
+                 color = &quot;black&quot;,
+                 fill = &quot;white&quot;) +
+  scale_x_continuous(limits = c(0, 180)) +
+  theme_bw() +
+  theme(panel.border = element_blank()) + 
+  theme(panel.grid.major = element_blank()) +
+  theme(panel.grid.minor = element_blank()) + 
+  xlab(&quot;Angle&quot;) + 
+  ylab(element_blank()) + 
+  ggtitle(&quot;Histogram of Shot Angles&quot;)
+
+ggplot(shots, aes(x=distance)) +
+    geom_histogram(binwidth = 6,
+                   center = 0,
+                   color = &quot;black&quot;,
+                   fill = &quot;white&quot;) +
+    scale_x_continuous(limits = c(0, 180)) +
+    theme_bw() +
+  theme(panel.border = element_blank()) + 
+    theme(panel.grid.major = element_blank()) +
+    theme(panel.grid.minor = element_blank()) + 
+    xlab(&quot;Distance&quot;) + 
+    ylab(element_blank()) + 
+    ggtitle(&quot;Histogram of Shot Distances&quot;)</code></pre>
+<p><img src="NHL_xG_files/figure-html/Histograms-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Histograms-2.png" width="50%" /></p>
+</div>
+<div id="probability-of-a-goal-given-distance-or-angle"
+class="section level3">
+<h3>Probability of a Goal Given Distance or Angle</h3>
+<pre class="r"><code>bins_distance &lt;- aggregate(shots,
+                   by=list(cut(shots$distance, seq(0,100,10))),
+                   mean)
+
+bins_angle &lt;- aggregate(shots,
+                  by=list(cut(shots$angle, seq(0,180,10))),
+                  mean)
+
+## Changing the first column to numeric values so that ggplot geom_smooth works
+bins_distance$Group.1 &lt;- as.numeric(bins_distance$Group.1)
+bins_angle$Group.1 &lt;- as.numeric(bins_angle$Group.1)
+
+angles &lt;- as.character(seq(0, 180, 10))
+distances &lt;- as.character(seq(0, 90, 10))
+
+
+ggplot(bins_distance, aes(x= bins_distance$Group.1, y =  bins_distance$goal)) +
+                          geom_point() +
+                          geom_line() +
+                          theme_bw() + 
+                          xlab(&quot;Distance to goal (Feet)&quot;) +
+                          ylab(&quot;Probability of Goal&quot;) + 
+                          scale_x_discrete(limits = distances)
+                          
+ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
+  geom_point() +
+  geom_smooth(method=lm, se = F) + 
+  theme_bw() +
+  xlab(&quot;Angle to Goal&quot;) +
+  ylab(&quot;Probability of Goal&quot;) + 
+  ggtitle(&quot;Probability of Goal Given the Distance&quot;) +
+  scale_x_discrete(limits = angles)</code></pre>
+<p><img src="NHL_xG_files/figure-html/Bins-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Bins-2.png" width="50%" />
+Splitting the data into training set and test set</p>
+<pre class="r"><code>#train_test_split &lt;- initial_split(data = shots, prop = 0.7)
+
+#train_data &lt;- train_test_split %&gt;%
+  #training()
+#test_data &lt;- train_test_split %&gt;%
+  #testing()</code></pre>
+<pre class="r"><code>LPM &lt;- lm(goal ~ distance + angle, data = shots)
+summary(LPM)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = goal ~ distance + angle, data = shots)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -0.91707 -0.10938 -0.06293 -0.03941  1.01860 
+## 
+## Coefficients:
+##               Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)  7.185e-02  1.214e-03   59.21   &lt;2e-16 ***
+## distance    -1.076e-03  2.244e-05  -47.96   &lt;2e-16 ***
+## angle        4.708e-03  4.078e-05  115.44   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.2843 on 929479 degrees of freedom
+##   (64674 observations deleted due to missingness)
+## Multiple R-squared:  0.05005,    Adjusted R-squared:  0.05004 
+## F-statistic: 2.448e+04 on 2 and 929479 DF,  p-value: &lt; 2.2e-16</code></pre>
+<pre class="r"><code>LPM_distance &lt;- as.numeric(LPM$coefficients[&quot;distance&quot;])
+LPM_angle &lt;- as.numeric(LPM$coefficients[&quot;angle&quot;])
+LPM_intercept &lt;- as.numeric(LPM$coefficients[&quot;(Intercept)&quot;])
+LPM_manual &lt;- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
+
+ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
+  geom_point() + geom_smooth(method = &quot;lm&quot;, se = F)</code></pre>
+<p><img src="NHL_xG_files/figure-html/LPM-1.png" width="672" /></p>
+<pre class="r"><code>logit &lt;- glm(goal ~ distance + angle,
+             family = binomial(link = &#39;logit&#39;),
+             data = shots)
+
+ggplot(logit, aes(x=distance, y =goal)) +
+  geom_point() + geom_smooth(method = &quot;glm&quot;, se = F)</code></pre>
+<p><img src="NHL_xG_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<pre class="r"><code>artificial_shots &lt;- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
+
+artificial_shots$distance &lt;- distance(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$angle &lt;- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$xg &lt;- LPM_intercept + distance(artificial_shots$location_x,artificial_shots$location_y) * LPM_distance + angle_theta(artificial_shots$location_x, artificial_shots$location_y) * LPM_angle
+
+
+
+geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone&quot;) +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1000)) +
+  scale_color_gradient(low = &quot;white&quot;, high =&quot;red&quot;,
+                       scales::rescale(c(0.9,0.1)))</code></pre>
+<p><img src="NHL_xG_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+<script>
+$(document).ready(function () {
+  window.initializeCodeFolding("show" === "show");
+});
+</script>
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "NHL_xG_files/mathjax-local/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
