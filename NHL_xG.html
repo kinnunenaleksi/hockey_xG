@@ -355,12 +355,12 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   scale_x_discrete(limits = angles)</code></pre>
 <p><img src="NHL_xG_files/figure-html/Bins-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Bins-2.png" width="50%" />
 Splitting the data into training set and test set</p>
-<pre class="r"><code>#train_test_split &lt;- initial_split(data = shots, prop = 0.7)
+<pre class="r"><code>train_test_split &lt;- initial_split(data = shots, prop = 0.7)
 
-#train_data &lt;- train_test_split %&gt;%
-  #training()
-#test_data &lt;- train_test_split %&gt;%
-  #testing()</code></pre>
+train_data &lt;- train_test_split %&gt;%
+  training()
+test_data &lt;- train_test_split %&gt;%
+  testing()</code></pre>
 <pre class="r"><code>LPM &lt;- lm(goal ~ distance + angle, data = shots)
 summary(LPM)</code></pre>
 <pre><code>## 
@@ -388,7 +388,7 @@ LPM_angle &lt;- as.numeric(LPM$coefficients[&quot;angle&quot;])
 LPM_intercept &lt;- as.numeric(LPM$coefficients[&quot;(Intercept)&quot;])
 LPM_manual &lt;- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
 
-ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
+ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
   geom_point() + geom_smooth(method = &quot;lm&quot;, se = F)</code></pre>
 <p><img src="NHL_xG_files/figure-html/LPM-1.png" /><!-- --></p>
 <pre class="r"><code>logit &lt;- glm(goal ~ distance + angle,
@@ -436,6 +436,10 @@ ggplot(logit, aes(x=angle, y =goal)) +
   ylab(&quot;Probability of Goal&quot;) + 
   ggtitle(&quot;Angle as an explanatory variable&quot;) </code></pre>
 <p><img src="NHL_xG_files/figure-html/logit-1.png" width="50%" /><img src="NHL_xG_files/figure-html/logit-2.png" width="50%" /></p>
+<pre class="r"><code>logit_distance &lt;- as.numeric(logit$coefficients[&quot;distance&quot;])
+logit_angle &lt;- as.numeric(logit$coefficients[&quot;angle&quot;])
+logit_intercept &lt;- as.numeric(logit$coefficients[&quot;(Intercept)&quot;])
+logit_value &lt;- 1/(1+exp(logit_intercept + logit_distance * shots$distance + logit_angle * shots$angle))</code></pre>
 <pre class="r"><code>artificial_shots &lt;- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance &lt;- distance(artificial_shots$location_x, artificial_shots$location_y)
@@ -449,6 +453,22 @@ geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone
   scale_color_gradient2(low = &quot;white&quot;, mid=&quot;red&quot;, midpoint = 0.55, high =&quot;darkred&quot;,
                        scales::rescale(c(0.9,0.1)))</code></pre>
 <p><img src="NHL_xG_files/figure-html/Heatmap-1.png" /><!-- --></p>
+<p>In a logit model, the probability of an event is given by</p>
+<p><span class="math inline">\(P = \frac{1}{1 + - exp^-{(\beta_0 +
+\beta_1 x_1 \beta_2 x_2 + …)}}\)</span></p>
+<pre class="r"><code>artificial_shots &lt;- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
+
+artificial_shots$distance &lt;- distance(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$angle &lt;- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$xg_logit &lt;- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
+
+
+geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone&quot;) +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.2)) +
+  scale_color_gradient(low = &quot;white&quot;, high =&quot;red&quot;,
+                       scales::rescale(c(0.1,0.1)))</code></pre>
+<p><img
+src="NHL_xG_files/figure-html/unnamed-chunk-2-1.png" /><!-- --></p>
 </div>
 </div>
 

@@ -196,12 +196,12 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
 Splitting the data into training set and test set 
 
 ```r
-#train_test_split <- initial_split(data = shots, prop = 0.7)
+train_test_split <- initial_split(data = shots, prop = 0.7)
 
-#train_data <- train_test_split %>%
-  #training()
-#test_data <- train_test_split %>%
-  #testing()
+train_data <- train_test_split %>%
+  training()
+test_data <- train_test_split %>%
+  testing()
 ```
 
 
@@ -239,7 +239,7 @@ LPM_angle <- as.numeric(LPM$coefficients["angle"])
 LPM_intercept <- as.numeric(LPM$coefficients["(Intercept)"])
 LPM_manual <- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
 
-ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
+ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
   geom_point() + geom_smooth(method = "lm", se = F)
 ```
 
@@ -303,6 +303,15 @@ ggplot(logit, aes(x=angle, y =goal)) +
 <img src="NHL_xG_files/figure-html/logit-1.png" width="50%" /><img src="NHL_xG_files/figure-html/logit-2.png" width="50%" />
 
 
+
+```r
+logit_distance <- as.numeric(logit$coefficients["distance"])
+logit_angle <- as.numeric(logit$coefficients["angle"])
+logit_intercept <- as.numeric(logit$coefficients["(Intercept)"])
+logit_value <- 1/(1+exp(logit_intercept + logit_distance * shots$distance + logit_angle * shots$angle))
+```
+
+
 ```r
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
@@ -319,6 +328,30 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 ```
 
 ![](NHL_xG_files/figure-html/Heatmap-1.png)<!-- -->
+
+
+In a logit model, the probability of an event is given by 
+
+$P = \frac{1}{1 + - exp^-{(\beta_0 + \beta_1 x_1 \beta_2 x_2 + …)}}$
+
+
+
+```r
+artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
+
+artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
+
+
+geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.2)) +
+  scale_color_gradient(low = "white", high ="red",
+                       scales::rescale(c(0.1,0.1)))
+```
+
+![](NHL_xG_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+
 
 
 
