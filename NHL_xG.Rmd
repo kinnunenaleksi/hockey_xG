@@ -1,7 +1,8 @@
 ---
 title: "NHL xG"
-output:
+output: 
   html_document:
+    keep_md: true
     toc: true
     code_folding: show
     mathjax: local
@@ -18,9 +19,11 @@ library(readr)
 library(dplyr)
 library(knitr)
 require(tidymodels)
+library(readr)
+library(rmarkdown)
 ```
-## Testing Header
-### Overview and Scope
+
+## Overview and Scope
 
 The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
 
@@ -192,16 +195,30 @@ ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
 ```
 
 
-```{r}
+```{r logit, fig.show="hold", out.width="50%"}
 logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
              data = shots)
 
+summary(logit)
+
 ggplot(logit, aes(x=distance, y =goal)) +
-  geom_point() + geom_smooth(method = "glm", se = F)
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
+  scale_x_reverse() +
+  theme_bw() +
+  xlab("Distance to Goal") +
+  ylab("Probability of Goal") + 
+  ggtitle("Distance as an explanatory variable") 
+
+ggplot(logit, aes(x=angle, y =goal)) +
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
+  theme_bw() +
+  xlab("Angle to Goal") +
+  ylab("Probability of Goal") + 
+  ggtitle("Angle as an explanatory variable") 
 ```
 
-```{r}
+```{r Heatmap}
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
@@ -211,8 +228,8 @@ artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,arti
 
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
-  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1000)) +
-  scale_color_gradient(low = "white", high ="red",
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
+  scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
                        scales::rescale(c(0.9,0.1)))
 ```
 

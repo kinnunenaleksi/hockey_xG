@@ -178,11 +178,8 @@ pre code {
 
 <div id="TOC">
 <ul>
-<li><a href="#testing-header" id="toc-testing-header">Testing Header</a>
-<ul>
 <li><a href="#overview-and-scope" id="toc-overview-and-scope">Overview
 and Scope</a></li>
-</ul></li>
 <li><a href="#data-wrangling" id="toc-data-wrangling">Data
 Wrangling</a></li>
 <li><a href="#plots" id="toc-plots">Plots</a>
@@ -195,10 +192,8 @@ Goal Given Distance or Angle</a></li>
 </ul>
 </div>
 
-<div id="testing-header" class="section level2">
-<h2>Testing Header</h2>
-<div id="overview-and-scope" class="section level3">
-<h3>Overview and Scope</h3>
+<div id="overview-and-scope" class="section level2">
+<h2>Overview and Scope</h2>
 <p>The aim of this project is to build different naive Expected Goals
 models using LPM, Logit, Probit and possibly xGBoost models. The data is
 obtained from <a
@@ -226,7 +221,6 @@ class="uri">https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_x
 href="https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb"
 class="uri">https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb</a></li>
 </ul>
-</div>
 </div>
 <div id="data-wrangling" class="section level2">
 <h2>Data Wrangling</h2>
@@ -396,14 +390,52 @@ LPM_manual &lt;- LPM_intercept + LPM_distance * shots$distance + LPM_angle * sho
 
 ggplot(data = LPM, mapping=aes(x=distance, y = goal)) +
   geom_point() + geom_smooth(method = &quot;lm&quot;, se = F)</code></pre>
-<p><img src="NHL_xG_files/figure-html/LPM-1.png" width="672" /></p>
+<p><img src="NHL_xG_files/figure-html/LPM-1.png" /><!-- --></p>
 <pre class="r"><code>logit &lt;- glm(goal ~ distance + angle,
              family = binomial(link = &#39;logit&#39;),
              data = shots)
 
-ggplot(logit, aes(x=distance, y =goal)) +
-  geom_point() + geom_smooth(method = &quot;glm&quot;, se = F)</code></pre>
-<p><img src="NHL_xG_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+summary(logit)</code></pre>
+<pre><code>## 
+## Call:
+## glm(formula = goal ~ distance + angle, family = binomial(link = &quot;logit&quot;), 
+##     data = shots)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.2891  -0.4820  -0.3568  -0.2794   3.0004  
+## 
+## Coefficients:
+##               Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept) -1.8507032  0.0147610 -125.38   &lt;2e-16 ***
+## distance    -0.0277390  0.0003334  -83.21   &lt;2e-16 ***
+## angle        0.0247258  0.0004099   60.32   &lt;2e-16 ***
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 578868  on 929481  degrees of freedom
+## Residual deviance: 537069  on 929479  degrees of freedom
+##   (64674 observations deleted due to missingness)
+## AIC: 537075
+## 
+## Number of Fisher Scoring iterations: 6</code></pre>
+<pre class="r"><code>ggplot(logit, aes(x=distance, y =goal)) +
+  geom_point() + geom_smooth(method = &quot;glm&quot;, method.args = list(family = &quot;quasibinomial&quot;), se = F) +
+  scale_x_reverse() +
+  theme_bw() +
+  xlab(&quot;Distance to Goal&quot;) +
+  ylab(&quot;Probability of Goal&quot;) + 
+  ggtitle(&quot;Distance as an explanatory variable&quot;) 
+
+ggplot(logit, aes(x=angle, y =goal)) +
+  geom_point() + geom_smooth(method = &quot;glm&quot;, method.args = list(family = &quot;quasibinomial&quot;), se = F) +
+  theme_bw() +
+  xlab(&quot;Angle to Goal&quot;) +
+  ylab(&quot;Probability of Goal&quot;) + 
+  ggtitle(&quot;Angle as an explanatory variable&quot;) </code></pre>
+<p><img src="NHL_xG_files/figure-html/logit-1.png" width="50%" /><img src="NHL_xG_files/figure-html/logit-2.png" width="50%" /></p>
 <pre class="r"><code>artificial_shots &lt;- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance &lt;- distance(artificial_shots$location_x, artificial_shots$location_y)
@@ -413,10 +445,10 @@ artificial_shots$xg &lt;- LPM_intercept + distance(artificial_shots$location_x,a
 
 
 geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone&quot;) +
-  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1000)) +
-  scale_color_gradient(low = &quot;white&quot;, high =&quot;red&quot;,
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
+  scale_color_gradient2(low = &quot;white&quot;, mid=&quot;red&quot;, midpoint = 0.55, high =&quot;darkred&quot;,
                        scales::rescale(c(0.9,0.1)))</code></pre>
-<p><img src="NHL_xG_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p><img src="NHL_xG_files/figure-html/Heatmap-1.png" /><!-- --></p>
 </div>
 </div>
 

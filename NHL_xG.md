@@ -1,6 +1,6 @@
 ---
 title: "NHL xG"
-output:
+output: 
   html_document:
     keep_md: true
     toc: true
@@ -251,11 +251,55 @@ logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
              data = shots)
 
-ggplot(logit, aes(x=distance, y =goal)) +
-  geom_point() + geom_smooth(method = "glm", se = F)
+summary(logit)
 ```
 
-![](NHL_xG_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+```
+## 
+## Call:
+## glm(formula = goal ~ distance + angle, family = binomial(link = "logit"), 
+##     data = shots)
+## 
+## Deviance Residuals: 
+##     Min       1Q   Median       3Q      Max  
+## -2.2891  -0.4820  -0.3568  -0.2794   3.0004  
+## 
+## Coefficients:
+##               Estimate Std. Error z value Pr(>|z|)    
+## (Intercept) -1.8507032  0.0147610 -125.38   <2e-16 ***
+## distance    -0.0277390  0.0003334  -83.21   <2e-16 ***
+## angle        0.0247258  0.0004099   60.32   <2e-16 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## (Dispersion parameter for binomial family taken to be 1)
+## 
+##     Null deviance: 578868  on 929481  degrees of freedom
+## Residual deviance: 537069  on 929479  degrees of freedom
+##   (64674 observations deleted due to missingness)
+## AIC: 537075
+## 
+## Number of Fisher Scoring iterations: 6
+```
+
+```r
+ggplot(logit, aes(x=distance, y =goal)) +
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
+  scale_x_reverse() +
+  theme_bw() +
+  xlab("Distance to Goal") +
+  ylab("Probability of Goal") + 
+  ggtitle("Distance as an explanatory variable") 
+
+ggplot(logit, aes(x=angle, y =goal)) +
+  geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
+  theme_bw() +
+  xlab("Angle to Goal") +
+  ylab("Probability of Goal") + 
+  ggtitle("Angle as an explanatory variable") 
+```
+
+<img src="NHL_xG_files/figure-html/logit-1.png" width="50%" /><img src="NHL_xG_files/figure-html/logit-2.png" width="50%" />
 
 
 ```r
@@ -268,12 +312,12 @@ artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,arti
 
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
-  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1000)) +
-  scale_color_gradient(low = "white", high ="red",
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
+  scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
                        scales::rescale(c(0.9,0.1)))
 ```
 
-![](NHL_xG_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
+![](NHL_xG_files/figure-html/Heatmap-1.png)<!-- -->
 
 
 
