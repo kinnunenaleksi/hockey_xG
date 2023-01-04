@@ -7,6 +7,7 @@ output:
     code_folding: show
     mathjax: local
     self_contained: false
+  github_document: default
 header-includes: -\usepackage{bbm}
 ---
 
