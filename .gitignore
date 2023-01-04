@@ -1,3 +1,6 @@
+.DS_Store
+NHL_xG_cache/*
+NHL_xG_files/*
 .Rproj.user
 .Rhistory
 .RData
