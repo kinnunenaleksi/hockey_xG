@@ -45,8 +45,8 @@ Loading the data and creating a variable for shot data
 ```{r load_data, cache = TRUE, R.options = list(width = 10000)}
 game_plays <- read.csv("~/Downloads/archive/game_plays.csv")
 
-## Making sure the data looks correct
-head(game_plays)
+## Making sure the data looks correct, showing first 15 samples and the response variable
+str(game_plays[,c(1:15, 18)])
 ```
 
 Parsing the data to include only the shots and goals
