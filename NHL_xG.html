@@ -406,7 +406,8 @@ LPM_manual &lt;- LPM_intercept + LPM_distance * shots$distance + LPM_angle * sho
 <p>In the plot below, the the main downside of LPM model becomes
 apparent: results are not bound [0,1].</p>
 <pre class="r"><code>ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
-  geom_point() + geom_smooth(method = &quot;lm&quot;, se = F)</code></pre>
+  geom_point() + geom_smooth(method = &quot;lm&quot;, se = F) +
+  theme_bw()</code></pre>
 <p><img src="NHL_xG_files/figure-html/LPM%20Plot-1.png" /><!-- --></p>
 <p>Because of this and various other reasons, logit is used.</p>
 <pre class="r"><code>logit &lt;- glm(goal ~ distance + angle,
@@ -472,8 +473,7 @@ artificial_shots$xg &lt;- LPM_intercept + distance(artificial_shots$location_x,a
 geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone&quot;) +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
   scale_color_gradient2(low = &quot;white&quot;, mid=&quot;red&quot;, midpoint = 0.55, high =&quot;darkred&quot;,
-                       scales::rescale(c(0.9,0.1))) +
-                       ggtitle(&quot;LPM Heatmap&quot;)</code></pre>
+                       scales::rescale(c(0.9,0.1)))</code></pre>
 <p><img
 src="NHL_xG_files/figure-html/Heatmap%20LPM-1.png" /><!-- --></p>
 <pre class="r"><code>artificial_shots &lt;- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
@@ -486,8 +486,7 @@ artificial_shots$xg_logit &lt;- 1 / (1 + exp(-logit_intercept - distance(artific
 geom_hockey(league = &quot;NHL&quot;, rotation = 90, display_range = &quot;ozone&quot;) +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
   scale_color_gradient(low = &quot;white&quot;, high =&quot;red&quot;,
-                       scales::rescale(c(0.1,0.9))) + 
-                        ggtitle(&quot;Heatmap Logit&quot;)</code></pre>
+                       scales::rescale(c(0.1,0.9))) </code></pre>
 <p><img
 src="NHL_xG_files/figure-html/Heatmap%20logit-1.png" /><!-- --></p>
 </div>

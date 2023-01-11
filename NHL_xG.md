@@ -255,7 +255,8 @@ In the plot below, the the main downside of LPM model becomes apparent: results 
 
 ```r
 ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
-  geom_point() + geom_smooth(method = "lm", se = F)
+  geom_point() + geom_smooth(method = "lm", se = F) +
+  theme_bw()
 ```
 
 ![](NHL_xG_files/figure-html/LPM Plot-1.png)<!-- -->
@@ -341,8 +342,7 @@ artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,arti
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
   scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
-                       scales::rescale(c(0.9,0.1))) +
-                       ggtitle("LPM Heatmap")
+                       scales::rescale(c(0.9,0.1)))
 ```
 
 ![](NHL_xG_files/figure-html/Heatmap LPM-1.png)<!-- -->
@@ -360,8 +360,7 @@ artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
   scale_color_gradient(low = "white", high ="red",
-                       scales::rescale(c(0.1,0.9))) + 
-                        ggtitle("Heatmap Logit")
+                       scales::rescale(c(0.1,0.9))) 
 ```
 
 ![](NHL_xG_files/figure-html/Heatmap logit-1.png)<!-- -->
