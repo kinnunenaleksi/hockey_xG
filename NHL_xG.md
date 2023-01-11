@@ -202,15 +202,18 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
 ```
 
 <img src="NHL_xG_files/figure-html/Bins-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Bins-2.png" width="50%" />
-Splitting the data into training set and test set 
+In the distance to goal there's an interesting fact: probability of goal increases with distance. This is likely due to the fact that usually shots from very far away are shot due to empty goal: hence it scewing the data. In angle to goal there's no notable surprises. 
+
+
+This chunk is saved for possible future uses. To ensure unbiasedness, training data has to be separated from the actual testing data. With the following commands the sample is randomized and 70% of it would be used for the training data. 
 
 ```r
-train_test_split <- initial_split(data = shots, prop = 0.7)
+#train_test_split <- initial_split(data = shots, prop = 0.7)
 
-train_data <- train_test_split %>%
-  training()
-test_data <- train_test_split %>%
-  testing()
+#train_data <- train_test_split %>%
+#  training()
+#test_data <- train_test_split %>%
+#  testing()
 ```
 
 
@@ -247,13 +250,17 @@ LPM_distance <- as.numeric(LPM$coefficients["distance"])
 LPM_angle <- as.numeric(LPM$coefficients["angle"])
 LPM_intercept <- as.numeric(LPM$coefficients["(Intercept)"])
 LPM_manual <- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
+```
+In the plot below, the the main downside of LPM model becomes apparent: results are not bound [0,1]. 
 
+```r
 ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
   geom_point() + geom_smooth(method = "lm", se = F)
 ```
 
-![](NHL_xG_files/figure-html/LPM-1.png)<!-- -->
+![](NHL_xG_files/figure-html/LPM Plot-1.png)<!-- -->
 
+Because of this and various other reasons, logit is used. 
 
 
 ```r
@@ -293,6 +300,17 @@ summary(logit)
 ```
 
 ```r
+logit_distance <- as.numeric(logit$coefficients["distance"])
+logit_angle <- as.numeric(logit$coefficients["angle"])
+logit_intercept <- as.numeric(logit$coefficients["(Intercept)"])
+logit_value <- 1/(1+exp(logit_intercept + logit_distance * shots$distance + logit_angle * shots$angle))
+```
+In a logit model, the probability of an event is given by 
+
+$P = \frac{1}{1 + - exp^{-{(\beta_0 + \beta_1 x_1 \beta_2 x_2 + …)}}}$
+
+
+```r
 ggplot(logit, aes(x=distance, y =goal)) +
   geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
   scale_x_reverse() +
@@ -309,16 +327,8 @@ ggplot(logit, aes(x=angle, y =goal)) +
   ggtitle("Angle as an explanatory variable") 
 ```
 
-<img src="NHL_xG_files/figure-html/logit-1.png" width="50%" /><img src="NHL_xG_files/figure-html/logit-2.png" width="50%" />
-
-
-
-```r
-logit_distance <- as.numeric(logit$coefficients["distance"])
-logit_angle <- as.numeric(logit$coefficients["angle"])
-logit_intercept <- as.numeric(logit$coefficients["(Intercept)"])
-logit_value <- 1/(1+exp(logit_intercept + logit_distance * shots$distance + logit_angle * shots$angle))
-```
+<img src="NHL_xG_files/figure-html/Logit Plots-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Logit Plots-2.png" width="50%" />
+From graphs above, it becomes visually clear that angle is a way more important factor affecting if a shot is a goal or not. 
 
 
 ```r
@@ -328,20 +338,14 @@ artificial_shots$distance <- distance(artificial_shots$location_x, artificial_sh
 artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
 artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,artificial_shots$location_y) * LPM_distance + angle_theta(artificial_shots$location_x, artificial_shots$location_y) * LPM_angle
 
-
-
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
   scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
-                       scales::rescale(c(0.9,0.1)))
+                       scales::rescale(c(0.9,0.1))) +
+                       ggtitle("LPM Heatmap")
 ```
 
-![](NHL_xG_files/figure-html/Heatmap-1.png)<!-- -->
-
-
-In a logit model, the probability of an event is given by 
-
-$P = \frac{1}{1 + - exp^-{(\beta_0 + \beta_1 x_1 \beta_2 x_2 + …)}}$
+![](NHL_xG_files/figure-html/Heatmap LPM-1.png)<!-- -->
 
 
 
@@ -354,12 +358,13 @@ artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial
 
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
-  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.2)) +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
   scale_color_gradient(low = "white", high ="red",
-                       scales::rescale(c(0.1,0.1)))
+                       scales::rescale(c(0.1,0.9))) + 
+                        ggtitle("Heatmap Logit")
 ```
 
-![](NHL_xG_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+![](NHL_xG_files/figure-html/Heatmap logit-1.png)<!-- -->
 
 
 
