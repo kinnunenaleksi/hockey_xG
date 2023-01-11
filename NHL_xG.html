@@ -308,7 +308,7 @@ ggplot(shots, aes(x=shots$angle)) +
   theme(panel.border = element_blank()) + 
   theme(panel.grid.major = element_blank()) +
   theme(panel.grid.minor = element_blank()) + 
-  xlab(&quot;Angle&quot;) + 
+  xlab(&quot;Angles&quot;) + 
   ylab(element_blank()) + 
   ggtitle(&quot;Histogram of Shot Angles&quot;)
 
@@ -352,7 +352,8 @@ ggplot(bins_distance, aes(x= bins_distance$Group.1, y =  bins_distance$goal)) +
                           theme_bw() + 
                           xlab(&quot;Distance to goal (Feet)&quot;) +
                           ylab(&quot;Probability of Goal&quot;) + 
-                          scale_x_discrete(limits = distances)
+                          scale_x_discrete(limits = distances) +
+                          ggtitle(&quot;Probability of Goal Given the Distance&quot;)
                           
 ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   geom_point() +
@@ -360,7 +361,7 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   theme_bw() +
   xlab(&quot;Angle to Goal&quot;) +
   ylab(&quot;Probability of Goal&quot;) + 
-  ggtitle(&quot;Probability of Goal Given the Distance&quot;) +
+  ggtitle(&quot;Probability of Goal Given the Angle&quot;) +
   scale_x_discrete(limits = angles)</code></pre>
 <p><img src="NHL_xG_files/figure-html/Bins-1.png" width="50%" /><img src="NHL_xG_files/figure-html/Bins-2.png" width="50%" />
 In the distance to goal there’s an interesting fact: probability of goal

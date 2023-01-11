@@ -141,7 +141,7 @@ ggplot(shots, aes(x=shots$angle)) +
   theme(panel.border = element_blank()) + 
   theme(panel.grid.major = element_blank()) +
   theme(panel.grid.minor = element_blank()) + 
-  xlab("Angle") + 
+  xlab("Angles") + 
   ylab(element_blank()) + 
   ggtitle("Histogram of Shot Angles")
 
@@ -188,7 +188,8 @@ ggplot(bins_distance, aes(x= bins_distance$Group.1, y =  bins_distance$goal)) +
                           theme_bw() + 
                           xlab("Distance to goal (Feet)") +
                           ylab("Probability of Goal") + 
-                          scale_x_discrete(limits = distances)
+                          scale_x_discrete(limits = distances) +
+                          ggtitle("Probability of Goal Given the Distance")
                           
 ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   geom_point() +
@@ -196,7 +197,7 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   theme_bw() +
   xlab("Angle to Goal") +
   ylab("Probability of Goal") + 
-  ggtitle("Probability of Goal Given the Distance") +
+  ggtitle("Probability of Goal Given the Angle") +
   scale_x_discrete(limits = angles)
 ```
 
