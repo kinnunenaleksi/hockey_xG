@@ -195,8 +195,8 @@ Goal Given Distance or Angle</a></li>
 <div id="overview-and-scope" class="section level2">
 <h2>Overview and Scope</h2>
 <p>The aim of this project is to build different naive Expected Goals
-models using LPM, Logit, Probit and possibly xGBoost models. The data is
-obtained from <a
+models using LPM, logit and possibly other regression models. The data
+is obtained from <a
 href="https://www.kaggle.com/datasets/martinellis/nhl-game-data">Kaggle</a>.</p>
 <p>Valuable sources have been:</p>
 <ul>
@@ -251,7 +251,6 @@ str(game_plays[,c(1:15, 18)])</code></pre>
   filter(event %in% c(&quot;Goal&quot;, &quot;Shot&quot;)) %&gt;%
   select(team_id_for, event, st_x, st_y, secondaryType)
 
-#mutate(goal = as.integer(ifelse(shots$event == &quot;Goal&quot;, 1,0)))
 ## Creating a new column for a binary response variable if a shot was a goal or not
 shots$goal &lt;- as.integer(ifelse(shots$event == &quot;Goal&quot;, 1,0))</code></pre>
 <p>Creating local variables for x and y cordinates</p>
@@ -282,7 +281,7 @@ range(angle_theta(x,y),na.rm=TRUE)</code></pre>
 shots &lt;- shots %&gt;%
   mutate(distance = distance(shots$st_x, shots$st_y),
                     angle = angle_theta(shots$st_x, shots$st_y))
-
+## Testing this works
 head(shots)</code></pre>
 <pre><code>##   team_id_for event st_x st_y secondaryType goal distance     angle
 ## 1          16  Shot   71   -9    Wrist Shot    0 20.12461 15.255119

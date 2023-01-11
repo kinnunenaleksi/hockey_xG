@@ -15,7 +15,7 @@ header-includes: -\usepackage{bbm}
 
 ## Overview and Scope
 
-The aim of this project is to build different naive Expected Goals models using LPM, Logit, Probit and possibly xGBoost models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
+The aim of this project is to build different naive Expected Goals models using LPM, logit and possibly other regression models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data). 
 
 Valuable sources have been: 
 
@@ -66,7 +66,6 @@ shots <- game_plays %>%
   filter(event %in% c("Goal", "Shot")) %>%
   select(team_id_for, event, st_x, st_y, secondaryType)
 
-#mutate(goal = as.integer(ifelse(shots$event == "Goal", 1,0)))
 ## Creating a new column for a binary response variable if a shot was a goal or not
 shots$goal <- as.integer(ifelse(shots$event == "Goal", 1,0))
 ```
@@ -112,7 +111,7 @@ range(angle_theta(x,y),na.rm=TRUE)
 shots <- shots %>%
   mutate(distance = distance(shots$st_x, shots$st_y),
                     angle = angle_theta(shots$st_x, shots$st_y))
-
+## Testing this works
 head(shots)
 ```
 
