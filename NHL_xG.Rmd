@@ -11,7 +11,7 @@ output:
     variant: markdown_github
     toc: true
     toc_depth: 2
-header-includes: -\usepackage{bbm}
+#header-includes: -\usepackage{bbm}
 ---
 
 ```{r setup, include=FALSE}
