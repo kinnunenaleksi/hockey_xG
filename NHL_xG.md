@@ -7,7 +7,10 @@ output:
     code_folding: show
     mathjax: local
     self_contained: false
-  github_document: default
+  md_document:
+    variant: markdown_github
+    toc: true
+    toc_depth: 2
 header-includes: -\usepackage{bbm}
 ---
 
