@@ -4,6 +4,7 @@ output:
   html_document:
     keep_md: true
     toc: true
+    toc_depth: 2
     code_folding: show
     mathjax: local
     self_contained: false

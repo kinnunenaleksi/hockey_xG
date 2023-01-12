@@ -4,6 +4,7 @@ output:
   html_document:
     keep_md: true
     toc: true
+    toc_depth: 2
     code_folding: show
     mathjax: local
     self_contained: false
@@ -249,7 +250,7 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 ```
 
 
-```{r Heatmap logit}
+```{r Heatmap logit, fig.show="hold"}
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
