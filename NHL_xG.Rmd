@@ -1,14 +1,14 @@
 ---
 title: "NHL xG"
-output: 
-  html_document:
-    keep_md: true
-    toc: true
-    toc_depth: 2
-    code_folding: show
-    mathjax: local
-    self_contained: false
-header-includes: -\usepackage{bbm}
+output: github_document
+#  html_document:
+#    keep_md: true
+#    toc: true
+#    toc_depth: 2
+#    code_folding: show
+#    mathjax: local
+#    self_contained: false
+#header-includes: -\usepackage{bbm}
 ---
 
 ```{r setup, include=FALSE}
