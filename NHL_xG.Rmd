@@ -22,6 +22,8 @@ library(knitr)
 require(tidymodels)
 library(readr)
 library(rmarkdown)
+install.packages("pROC")
+library(pROC)
 ```
 
 ## Overview and Scope
@@ -266,6 +268,13 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 
 
 
+```{r}
+
+length(shots$goal)
+length(logit$fitted.values)
+roc(shots$goal[0:929482], logit$fitted.values, plot = TRUE, legacy.axes =TRUE, col = "red")
+
+```
 
 
 
