@@ -50,7 +50,7 @@ str(game_plays[,c(1:15, 18)])
 Parsing the data to include only the shots and goals
 
 ``` r
-shots <- game_plays %>%
+shots <- na.omit(game_plays) %>%
   filter(event %in% c("Goal", "Shot")) %>%
   select(team_id_for, event, st_x, st_y, secondaryType)
 
@@ -217,20 +217,20 @@ summary(LPM)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.91707 -0.10938 -0.06293 -0.03941  1.01860 
+    ## -0.91679 -0.10933 -0.06287 -0.03935  1.01867 
     ## 
     ## Coefficients:
     ##               Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  7.185e-02  1.214e-03   59.21   <2e-16 ***
-    ## distance    -1.076e-03  2.244e-05  -47.96   <2e-16 ***
-    ## angle        4.708e-03  4.078e-05  115.44   <2e-16 ***
+    ## (Intercept)  7.182e-02  1.213e-03   59.20   <2e-16 ***
+    ## distance    -1.076e-03  2.243e-05  -47.99   <2e-16 ***
+    ## angle        4.706e-03  4.077e-05  115.43   <2e-16 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.2843 on 929479 degrees of freedom
-    ##   (64674 observations deleted due to missingness)
-    ## Multiple R-squared:  0.05005,    Adjusted R-squared:  0.05004 
-    ## F-statistic: 2.448e+04 on 2 and 929479 DF,  p-value: < 2.2e-16
+    ## Residual standard error: 0.2842 on 929388 degrees of freedom
+    ##   (28 observations deleted due to missingness)
+    ## Multiple R-squared:  0.05006,    Adjusted R-squared:  0.05006 
+    ## F-statistic: 2.449e+04 on 2 and 929388 DF,  p-value: < 2.2e-16
 
 ``` r
 LPM_distance <- as.numeric(LPM$coefficients["distance"])
@@ -267,22 +267,22 @@ summary(logit)
     ## 
     ## Deviance Residuals: 
     ##     Min       1Q   Median       3Q      Max  
-    ## -2.2891  -0.4820  -0.3568  -0.2794   3.0004  
+    ## -2.2884  -0.4819  -0.3567  -0.2792   3.0013  
     ## 
     ## Coefficients:
     ##               Estimate Std. Error z value Pr(>|z|)    
-    ## (Intercept) -1.8507032  0.0147610 -125.38   <2e-16 ***
-    ## distance    -0.0277390  0.0003334  -83.21   <2e-16 ***
-    ## angle        0.0247258  0.0004099   60.32   <2e-16 ***
+    ## (Intercept) -1.8505022  0.0147658 -125.32   <2e-16 ***
+    ## distance    -0.0277695  0.0003335  -83.26   <2e-16 ***
+    ## angle        0.0247145  0.0004100   60.27   <2e-16 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
     ## (Dispersion parameter for binomial family taken to be 1)
     ## 
-    ##     Null deviance: 578868  on 929481  degrees of freedom
-    ## Residual deviance: 537069  on 929479  degrees of freedom
-    ##   (64674 observations deleted due to missingness)
-    ## AIC: 537075
+    ##     Null deviance: 578555  on 929390  degrees of freedom
+    ## Residual deviance: 536746  on 929388  degrees of freedom
+    ##   (28 observations deleted due to missingness)
+    ## AIC: 536752
     ## 
     ## Number of Fisher Scoring iterations: 6
 
@@ -348,3 +348,9 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 ```
 
 ![](NHL_xG_files/figure-gfm/Heatmap%20logit-1.png)<!-- -->
+
+``` r
+#length(shots$goal)
+#length(logit$fitted.values)
+#roc(shots$goal[0:nrow(shots)], logit$fitted.values, plot = TRUE, legacy.axes =TRUE, col = "red")
+```

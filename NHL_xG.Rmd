@@ -22,7 +22,6 @@ library(knitr)
 require(tidymodels)
 library(readr)
 library(rmarkdown)
-install.packages("pROC")
 library(pROC)
 ```
 
@@ -53,7 +52,7 @@ str(game_plays[,c(1:15, 18)])
 
 Parsing the data to include only the shots and goals
 ```{r shots, cache=TRUE}
-shots <- game_plays %>%
+shots <- na.omit(game_plays) %>%
   filter(event %in% c("Goal", "Shot")) %>%
   select(team_id_for, event, st_x, st_y, secondaryType)
 
@@ -270,9 +269,9 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 
 ```{r}
 
-length(shots$goal)
-length(logit$fitted.values)
-roc(shots$goal[0:929482], logit$fitted.values, plot = TRUE, legacy.axes =TRUE, col = "red")
+#length(shots$goal)
+#length(logit$fitted.values)
+#roc(shots$goal[0:nrow(shots)], logit$fitted.values, plot = TRUE, legacy.axes =TRUE, col = "red")
 
 ```
 
