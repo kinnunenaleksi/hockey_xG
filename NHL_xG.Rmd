@@ -1,10 +1,9 @@
 ---
 title: "NHL xG"
-output: github_document
-#  html_document:
-#    keep_md: true
-#    toc: true
-#    toc_depth: 2
+output:
+  github_document:
+    toc: true
+#  toc_depth: 2
 #    code_folding: show
 #    mathjax: local
 #    self_contained: false

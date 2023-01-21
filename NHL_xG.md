@@ -1,6 +1,15 @@
 NHL xG
 ================
 
+- <a href="#overview-and-scope" id="toc-overview-and-scope">Overview and
+  Scope</a>
+- <a href="#data-wrangling" id="toc-data-wrangling">Data Wrangling</a>
+- <a href="#plots" id="toc-plots">Plots</a>
+  - <a href="#histograms" id="toc-histograms">Histograms</a>
+  - <a href="#probability-of-a-goal-given-distance-or-angle"
+    id="toc-probability-of-a-goal-given-distance-or-angle">Probability of a
+    Goal Given Distance or Angle</a>
+
 ## Overview and Scope
 
 The aim of this project is to build different naive Expected Goals
