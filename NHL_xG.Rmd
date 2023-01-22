@@ -3,6 +3,7 @@ title: "NHL xG"
 output:
   github_document:
     toc: true
+    #code-folding: show
 #  toc_depth: 2
 #    code_folding: show
 #    mathjax: local
@@ -89,7 +90,7 @@ angle_theta <- function(x_pos, y_pos) {
 ## Making sure our range is correct, should be between 0 and 180
 range(angle_theta(x,y),na.rm=TRUE)
 
-## Adding columns for distance and angle
+## adding columns for distance and angle
 shots <- shots %>%
   mutate(distance = distance(shots$st_x, shots$st_y),
                     angle = angle_theta(shots$st_x, shots$st_y))
@@ -100,7 +101,7 @@ head(shots)
 
 ### Histograms
 
-A couple of histograms from the data that show the distribution of shot distance and angle
+a couple of histograms from the data that show the distribution of shot distance and angle
 ```{r, Histograms, fig.show="hold", out.width="50%"}
 par(mar = c(4, 4, .1, .1))
 ggplot(shots, aes(x=shots$angle)) +
@@ -113,9 +114,9 @@ ggplot(shots, aes(x=shots$angle)) +
   theme(panel.border = element_blank()) + 
   theme(panel.grid.major = element_blank()) +
   theme(panel.grid.minor = element_blank()) + 
-  xlab("Angles") + 
+  xlab("angles") + 
   ylab(element_blank()) + 
-  ggtitle("Histogram of Shot Angles")
+  ggtitle("Histogram of Shot angles")
 
 ggplot(shots, aes(x=distance)) +
     geom_histogram(binwidth = 6,
@@ -133,7 +134,7 @@ ggplot(shots, aes(x=distance)) +
 ```
 
 
-### Probability of a Goal Given Distance or Angle
+### Probability of a Goal Given Distance or angle
 ```{r Bins, fig.show="hold", out.width="50%", cache = TRUE}
 
 bins_distance <- aggregate(shots,
@@ -165,23 +166,16 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   geom_point() +
   geom_smooth(method=lm, se = F) + 
   theme_bw() +
-  xlab("Angle to Goal") +
+  xlab("angle to Goal") +
   ylab("Probability of Goal") + 
-  ggtitle("Probability of Goal Given the Angle") +
+  ggtitle("Probability of Goal Given the angle") +
   scale_x_discrete(limits = angles)
 ```
 In the distance to goal there's an interesting fact: probability of goal increases with distance. This is likely due to the fact that usually shots from very far away are shot due to empty goal: hence it scewing the data. In angle to goal there's no notable surprises. 
 
 
 This chunk is saved for possible future uses. To ensure unbiasedness, training data has to be separated from the actual testing data. With the following commands the sample is randomized and 70% of it would be used for the training data. 
-```{r training_data}
-#train_test_split <- initial_split(data = shots, prop = 0.7)
 
-#train_data <- train_test_split %>%
-#  training()
-#test_data <- train_test_split %>%
-#  testing()
-```
 
 ```{r LPM}
 LPM <- lm(goal ~ distance + angle, data = shots)
@@ -206,8 +200,6 @@ logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
              data = shots)
 
-summary(logit)
-
 logit_distance <- as.numeric(logit$coefficients["distance"])
 logit_angle <- as.numeric(logit$coefficients["angle"])
 logit_intercept <- as.numeric(logit$coefficients["(Intercept)"])
@@ -230,11 +222,46 @@ ggplot(logit, aes(x=distance, y =goal)) +
 ggplot(logit, aes(x=angle, y =goal)) +
   geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
   theme_bw() +
-  xlab("Angle to Goal") +
+  xlab("angle to Goal") +
   ylab("Probability of Goal") + 
-  ggtitle("Angle as an explanatory variable") 
+  ggtitle("angle as an explanatory variable") 
 ```
-From graphs above, it becomes visually clear that angle is a way more important factor affecting if a shot is a goal or not. 
+From graphs above, it becomes visually clear that angle is a way more important factor affecting if a shot is a goal or not. To test whether we could improve explanatory power of distance, we add a quadratic form of it as an extra variable. 
+
+```{r Quadratics}
+shots$distance_sq <- shots$distance^2
+
+logit.2 <- glm(goal ~ distance + distance_sq + angle,
+               family = binomial(link = 'logit'),
+               data = shots)
+
+summary(logit.2)
+logit.2_coef <- logit.2$coefficients
+logit.2_distance <- logit.2_coef["distance"]
+logit.2_distance_sq <- logit.2_coef["distance_sq"]
+logit.2_intercept <- logit.2_coef["(Intercept)"]
+
+
+b <- data.frame(c(seq(0,100,.1)))
+
+a <- (1 / (1 + exp(-logit.2_distance * b - logit.2_distance_sq * b - logit.2_intercept)))
+a.2 <- (1 / (1 + exp(-logit_distance * b - logit_intercept)))
+a.3 <- (1 / (1 + exp(-logit.2_distance * b - logit.2_intercept)))
+  
+c <- cbind(a, a.2, b)
+
+colnames(c) <- c("a", "a.2", "b")
+
+ggplot(c, aes(x=b,y=a)) +
+  geom_point(size = 0.4, col = "darkgreen") + 
+  geom_point(aes(y=a.2), size = 0.3, col = "darkred") +
+  theme_bw() + 
+  ggtitle("Comparing Distance Variables with and without quadratic term") +
+  xlab("Distance to Goal") +
+  ylab("Probability of a Goal")
+```
+
+As we can see, quadratic's effect is minimal and henceforth will be discarded.
 
 ```{r Heatmap LPM}
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
@@ -257,7 +284,6 @@ artificial_shots$distance <- distance(artificial_shots$location_x, artificial_sh
 artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
 artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
 
-
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
   scale_color_gradient(low = "white", high ="red",
@@ -265,17 +291,67 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 ```
 
 
+## Adding Depth
+
+Henceforth we will be comparing the effectivness of the models, hence the data will be split into training- and testing data. Here 70% of the full sample is used for training and the remaining 30% for testing. This ensured unbiasedness when testing the models. 
+```{r training_data}
+train_test_split <- initial_split(data = shots, prop = 0.7)
+
+train_data <- train_test_split %>%
+  training()
+test_data <- train_test_split %>%
+  testing()
+```
+
+Let's broaden our analysis by adding an other explanatory factor to the regression: shot type. We have the following options: 
 
 ```{r}
+unique(shots$secondaryType)
+```
 
-#length(shots$goal)
-#length(logit$fitted.values)
-#roc(shots$goal[0:nrow(shots)], logit$fitted.values, plot = TRUE, legacy.axes =TRUE, col = "red")
+Lets add this to the regression and see how the coefficients for distance and angle change. 
+```{r adding secondaryType}
+logit.3 <- glm(goal ~ distance + angle + secondaryType,
+             family = binomial(link = 'logit'),
+             data = train_data)
+
+logit_pred <- predict(logit, test_data, type = "response")
+logit.2_pred <- predict(logit.2, test_data, type = "response")
+
+logit.3_pred <- predict(logit.3, test_data, type = "response")
+table(shots$goal)
+
+head(logit.3_pred)
+sum(logit.3_pred > 0.01, na.rm=TRUE)
+
+
+par(pty = "s")
+#Comparing Logit models 
+roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit.2_pred))
+
+#Comparing better Logit model to the LPM model
+roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit_pred))
+
+logit.3_roc <- roc(test_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
+  legacy.axes = TRUE, percent = TRUE, xlab = "False Positive Percentage",
+  ylab = "True Positive Percentage") 
+
+#Observing the optimal threshold level and the corresponding specificity and sensitivity levels
+logit.3_threshold <- coords(logit.3_roc, "best", "threshold")
+logit.3_threshold
+
+#Creating Confusion Matrix
+logit.3_conf <- table(logit.3_pred>=logit.3_threshold$threshold, test_data$goal)
+sum(diag(logit.3_conf))/sum(logit.3_conf)*100
 
 ```
 
+```{r}
 
 
+
+
+```
 
 
 
