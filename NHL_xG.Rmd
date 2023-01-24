@@ -194,8 +194,9 @@ shots_parsed <- shots %>%
   sample_n(2500)
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
-  geom_point(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, col = shots_parsed$goal, size = shots$parsed$goal, alpha = 0.5)) +
-  scale_color_binned(low ="red", high = "darkgreen")
+  geom_point(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, col = shots_parsed$goal, alpha = 0.9, size = shots_parsed$goal)) +
+  scale_color_binned(low ="red", high = "darkgreen") +
+  scale_size_continuous(range = c(1,2))
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_density2d_filled(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, alpha = 0.5),
