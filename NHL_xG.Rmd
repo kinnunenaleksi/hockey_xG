@@ -3,8 +3,9 @@ title: "NHL xG"
 output:
   github_document:
     toc: true
-  #toc-title: "Table of Contents"
+  toc-title: "Table of Contents"
   code_folding: show
+  number_sections: true
 #  toc_depth: 2
 #    code_folding: show
 #    mathjax: local
