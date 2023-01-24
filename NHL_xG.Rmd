@@ -3,7 +3,8 @@ title: "NHL xG"
 output:
   github_document:
     toc: true
-    #code-folding: show
+  #toc-title: "Table of Contents"
+  code_folding: show
 #  toc_depth: 2
 #    code_folding: show
 #    mathjax: local
@@ -13,6 +14,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+set.seed(2023)
 library(sportyR)
 library(ggplot2)
 library(tidyverse)
@@ -23,34 +25,40 @@ require(tidymodels)
 library(readr)
 library(rmarkdown)
 library(pROC)
+library(randomForest)
+library(cowplot)
+library(usethis)
+library(parallel)
+library(Hmisc)
 ```
 
 ## Overview and Scope
 
-The aim of this project is to build different naive Expected Goals models using LPM, logit and possibly other regression models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data). 
+The aim of this project is to build different naive Expected Goals models using LPM, logit and possibly other regression models. The data is obtained from [Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
 
-Valuable sources have been: 
+Valuable sources have been:
 
-* https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R
-* https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/
-* https://www.datofutbol.cl/xg-model/
-* https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752
-* https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html
-* https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html
-* https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb
-
+-   <https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R>
+-   <https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/>
+-   <https://www.datofutbol.cl/xg-model/>
+-   <https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752>
+-   <https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html>
+-   <https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html>
+-   <https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb>
 
 ## Data Wrangling
 
-Loading the data and creating a variable for shot data 
+Loading the data and creating a variable for shot data
+
 ```{r load_data, cache = TRUE, R.options = list(width = 10000)}
 game_plays <- read.csv("~/Downloads/archive/game_plays.csv")
 
-## Making sure the data looks correct, showing first 15 samples and the response variable
-str(game_plays[,c(1:15, 18)])
+## Making sure the data looks correct, showing first 18 samples and the response variable
+str(game_plays)
 ```
 
 Parsing the data to include only the shots and goals
+
 ```{r shots, cache=TRUE}
 shots <- na.omit(game_plays) %>%
   filter(event %in% c("Goal", "Shot")) %>%
@@ -61,6 +69,7 @@ shots$goal <- as.integer(ifelse(shots$event == "Goal", 1,0))
 ```
 
 Creating local variables for x and y cordinates
+
 ```{r cordinates}
 
 ##Taking the absolute value to have all the shots in the same horizontal axis
@@ -68,11 +77,11 @@ x <- abs(shots$st_x)
 y <- shots$st_y
 ```
 
-Creating functions for distance and angle. Distance is calculated by 
+Creating functions for distance and angle. Distance is calculated by
 
 $c^2 = a^2 + b^2 \Rightarrow c = \sqrt{a^2 + b^2 }$
 
-The angle to the goal is calculated as follows, 
+The angle to the goal is calculated as follows,
 
 $\tan \theta = \frac{\text{goal width } * x }{x^2 + y^2 - (\frac{\text{goal width}}{2})^2 }$
 
@@ -97,12 +106,14 @@ shots <- shots %>%
 ## Testing this works
 head(shots)
 ```
-## Plots
+
+## Data Exploration
 
 ### Histograms
 
 a couple of histograms from the data that show the distribution of shot distance and angle
-```{r, Histograms, fig.show="hold", out.width="50%"}
+
+```{r, Histograms, fig.show="hold", out.width="50%", class.source = 'fold-hide'}
 par(mar = c(4, 4, .1, .1))
 ggplot(shots, aes(x=shots$angle)) +
   geom_histogram(binwidth = 3,
@@ -133,8 +144,8 @@ ggplot(shots, aes(x=distance)) +
     ggtitle("Histogram of Shot Distances")
 ```
 
-
 ### Probability of a Goal Given Distance or angle
+
 ```{r Bins, fig.show="hold", out.width="50%", cache = TRUE}
 
 bins_distance <- aggregate(shots,
@@ -171,42 +182,69 @@ ggplot () + aes(x= bins_angle$Group.1, y =  bins_angle$goal) +
   ggtitle("Probability of Goal Given the angle") +
   scale_x_discrete(limits = angles)
 ```
-In the distance to goal there's an interesting fact: probability of goal increases with distance. This is likely due to the fact that usually shots from very far away are shot due to empty goal: hence it scewing the data. In angle to goal there's no notable surprises. 
+
+In the distance to goal there's an interesting fact: probability of goal increases with distance. This is likely due to the fact that usually shots from very far away are shot due to empty goal: hence it scewing the data. In angle to goal there's no notable surprises.
 
 
-This chunk is saved for possible future uses. To ensure unbiasedness, training data has to be separated from the actual testing data. With the following commands the sample is randomized and 70% of it would be used for the training data. 
+### Shot Plots
+```{r shotPlots, fig.show="hold", out.width="50%"}
+#Shot maps for randomly samples 2500 shots 
+shots_parsed <- shots %>%
+  subset(st_x < 88) %>%
+  sample_n(2500)
 
+geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
+  geom_point(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, col = shots_parsed$goal, size = shots$parsed$goal, alpha = 0.5)) +
+  scale_color_binned(low ="red", high = "darkgreen")
+
+geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
+  geom_density2d_filled(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, alpha = 0.5),
+                        contour_var = "ndensity",
+                        breaks = seq(0.1, 1.0, length.out = 10))
+```
+
+## Basic Regression Models
+
+### Linear Probability Model
 
 ```{r LPM}
 LPM <- lm(goal ~ distance + angle, data = shots)
 summary(LPM)
-
-LPM_distance <- as.numeric(LPM$coefficients["distance"])
-LPM_angle <- as.numeric(LPM$coefficients["angle"])
-LPM_intercept <- as.numeric(LPM$coefficients["(Intercept)"])
-LPM_manual <- LPM_intercept + LPM_distance * shots$distance + LPM_angle * shots$angle
 ```
-In the plot below, the the main downside of LPM model becomes apparent: results are not bound [0,1]. 
+
+In the plot below, the the main downside of LPM model becomes apparent: results are not bound [0,1].
+
 ```{r LPM Plot}
 ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
   geom_point() + geom_smooth(method = "lm", se = F) +
   theme_bw()
 ```
 
-Because of this and various other reasons, logit is used. 
+```{r Heatmap LPM}
+artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
+
+artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$xg <- predict(LPM, artificial_shots, type = "response")
+
+geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
+  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
+  scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
+                       scales::rescale(c(0.9,0.1)))
+```
+
+### Logit Part 1
+Due to the significant downsides of LPM, logistic regression is henceforth used. 
 
 ```{r logit}
 logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
              data = shots)
 
-logit_distance <- as.numeric(logit$coefficients["distance"])
-logit_angle <- as.numeric(logit$coefficients["angle"])
-logit_intercept <- as.numeric(logit$coefficients["(Intercept)"])
-logit_value <- 1/(1+exp(logit_intercept + logit_distance * shots$distance + logit_angle * shots$angle))
 
 ```
-In a logit model, the probability of an event is given by 
+
+In a logit model, the probability of an event is given by
 
 $P = \frac{1}{1 + - exp^{-{(\beta_0 + \beta_1 x_1 \beta_2 x_2 + …)}}}$
 
@@ -226,7 +264,8 @@ ggplot(logit, aes(x=angle, y =goal)) +
   ylab("Probability of Goal") + 
   ggtitle("angle as an explanatory variable") 
 ```
-From graphs above, it becomes visually clear that angle is a way more important factor affecting if a shot is a goal or not. To test whether we could improve explanatory power of distance, we add a quadratic form of it as an extra variable. 
+
+From graphs above, it becomes visually clear that angle is a way more important factor affecting if a shot is a goal or not. To test whether we could improve explanatory power of distance, we add a quadratic form of it as an extra variable.
 
 ```{r Quadratics}
 shots$distance_sq <- shots$distance^2
@@ -242,39 +281,36 @@ logit.2_distance_sq <- logit.2_coef["distance_sq"]
 logit.2_intercept <- logit.2_coef["(Intercept)"]
 
 
-b <- data.frame(c(seq(0,100,.1)))
+b <- data.frame(c(seq(0,150,.1)))
 
 a <- (1 / (1 + exp(-logit.2_distance * b - logit.2_distance_sq * b - logit.2_intercept)))
-a.2 <- (1 / (1 + exp(-logit_distance * b - logit_intercept)))
-a.3 <- (1 / (1 + exp(-logit.2_distance * b - logit.2_intercept)))
-  
+a.2 <- (1 / (1 + exp(-logit.2_distance * b - logit.2_intercept)))
+
 c <- cbind(a, a.2, b)
 
+
+head(c)
 colnames(c) <- c("a", "a.2", "b")
 
-ggplot(c, aes(x=b,y=a)) +
-  geom_point(size = 0.4, col = "darkgreen") + 
-  geom_point(aes(y=a.2), size = 0.3, col = "darkred") +
+ggplot(c, aes(x=b,y=a.2)) +
+  geom_point(size = 2, col = "darkgreen") + 
+  geom_point(aes(y=a.2), size = 0.1, col = "darkred") +
   theme_bw() + 
   ggtitle("Comparing Distance Variables with and without quadratic term") +
   xlab("Distance to Goal") +
   ylab("Probability of a Goal")
 ```
 
-As we can see, quadratic's effect is minimal and henceforth will be discarded.
-
-```{r Heatmap LPM}
-artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
-
-artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
-artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
-artificial_shots$xg <- LPM_intercept + distance(artificial_shots$location_x,artificial_shots$location_y) * LPM_distance + angle_theta(artificial_shots$location_x, artificial_shots$location_y) * LPM_angle
-
-geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
-  geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
-  scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
-                       scales::rescale(c(0.9,0.1)))
+```{r, include = FALSE}
+#Overwriting logit.2
+logit.2 <- glm(goal ~ distance + angle,
+               family = binomial(link = 'logit'),
+               data = shots)
 ```
+
+
+As we can see, quadratic's effect is just taking into account the 'long-shot bias', which is caused by empty-net goals.
+
 
 
 ```{r Heatmap logit, fig.show="hold"}
@@ -282,7 +318,12 @@ artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(
 
 artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
 artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
-artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
+#artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
+artificial_shots
+
+
+artificial_shots$xg_logit <- predict(logit, artificial_shots, type = "response")
+
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
@@ -291,11 +332,19 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 ```
 
 
-## Adding Depth
+## Other Regression and Classification Models 
 
-Henceforth we will be comparing the effectivness of the models, hence the data will be split into training- and testing data. Here 70% of the full sample is used for training and the remaining 30% for testing. This ensured unbiasedness when testing the models. 
+### Introduction and adding variables 
+
+Note: this part is more experimental and is very prone to mistakes. 
+
+Henceforth we will be comparing the effectivness of the models, hence the data will be split into training- and testing data. Here 70% of the full sample is used for training and the remaining 30% for testing. This ensured unbiasedness when testing the models.
+
 ```{r training_data}
-train_test_split <- initial_split(data = shots, prop = 0.7)
+
+parsed_shots <- shots %>%
+  select(goal, distance, angle, secondaryType)
+train_test_split <- initial_split(data = parsed_shots, prop = 0.7)
 
 train_data <- train_test_split %>%
   training()
@@ -303,13 +352,16 @@ test_data <- train_test_split %>%
   testing()
 ```
 
-Let's broaden our analysis by adding an other explanatory factor to the regression: shot type. We have the following options: 
+Let's broaden our analysis by adding an other explanatory factor to the regression: shot type. We have the following options:
 
 ```{r}
 unique(shots$secondaryType)
 ```
 
-Lets add this to the regression and see how the coefficients for distance and angle change. 
+### Logit Part 2
+
+Lets add this to the regression and see how the coefficients for distance and angle change.
+
 ```{r adding secondaryType}
 logit.3 <- glm(goal ~ distance + angle + secondaryType,
              family = binomial(link = 'logit'),
@@ -325,12 +377,12 @@ head(logit.3_pred)
 sum(logit.3_pred > 0.01, na.rm=TRUE)
 
 
-par(pty = "s")
 #Comparing Logit models 
 roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit.2_pred))
 
 #Comparing better Logit model to the LPM model
 roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit_pred))
+par(pty = "s")
 
 logit.3_roc <- roc(test_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
   legacy.axes = TRUE, percent = TRUE, xlab = "False Positive Percentage",
@@ -346,12 +398,106 @@ sum(diag(logit.3_conf))/sum(logit.3_conf)*100
 
 ```
 
-```{r}
-
-
-
+```{r freeMemory, include = FALSE}
+## Removing large datasets not in use anymore 
+rm(game_plays, LPM, shots, train_test_split)
 
 ```
+
+
+### Random Forest 
+```{r Cleaning Data}
+## Making the train_data smaller due to memory issues 
+train_data <- sample_n(train_data, size = 1000)
+
+## Changing labels from 0 and 1 to "Goal" and "Not Goal" 
+train_data$goal <- ifelse(test=train_data$goal == "1", yes = "Goal", no = "Not Goal")
+test_data$goal <- ifelse(test=test_data$goal == 0, yes = "Not Goal", no = "Goal")
+
+## Changing the class of some columns for the commands to work
+train_data$goal <- as.factor(train_data$goal)
+train_data$secondaryType <- as.factor(train_data$secondaryType)
+test_data$goal <- as.factor(test_data$goal)
+test_data$secondaryType <- as.factor(test_data$secondaryType)
+
+## Checking all classes are either numerical or factor
+str(train_data)
+
+## Calculating the amount of NA's 
+sum(is.na(train_data))
+```
+As we can see, we have 15 NA's in the 'Angle' Column. This is fixed by na.action = na.roughfix, which fills NA's with column median. Because of the huge sample size, more advanced imputations are not needed. 
+
+
+```{r RandomForest}
+## Making the model 
+#set.seed(2023)
+rf_model <- randomForest(goal ~ ., data = train_data, proximity = TRUE, na.action = na.roughfix, ntree = 1000)
+
+## This is to see how many trees are necessary for accurate predictions. It calculates the error rates after making of each tree. 
+oob.error.data <- data.frame(
+  trees=rep(1:nrow(rf_model$err.rate), times = 3),
+  type=rep(c("OOB", "Goal", "Not Goal"), each=nrow(rf_model$err.rate)),
+  error=c(rf_model$err.rate[,"OOB"],
+          rf_model$err.rate[,"Goal"],
+          rf_model$err.rate[,"Not Goal"]))
+ggplot(data=oob.error.data, aes(x=trees, y=error)) +
+  geom_line(aes(color=type))
+
+
+## Calculating Out-of-the-bag error rates for different mtrys, which means how many variables are randomly sampled as candidates at each split. 
+oob.values <- vector(length = 10)
+for(i in 1:10){
+  temp.rf_model <- randomForest(goal ~., data = train_data, mtry = i,
+                                ntree = 100)
+  oob.values[i] <- temp.rf_model$err.rate[nrow(temp.rf_model$err.rate), 1]
+}
+
+## Looking for the mtry that gives smallest OOB error
+oob.values
+
+## Building a MDS plot 
+distance.matrix <- dist(1 - rf_model$proximity)
+mds.stuff <- cmdscale(distance.matrix, eig=TRUE, x.ret = TRUE)
+mds.var.per <- round(mds.stuff$eig/sum(mds.stuff$eig)*100, 1)
+mds.values <- mds.stuff$points
+mds.data <- data.frame(Sample=rownames(mds.values),
+                       X=mds.values[,1],
+                       Y = mds.values[,2],
+                       Status = train_data$goal)
+head(mds.values)
+
+ggplot(data=mds.data, aes(x=X, y=Y, label = Sample)) +
+  theme_bw() +
+  geom_text(aes(color=Status)) +
+  xlab(paste("MDS1 - ", mds.var.per[1], "%", sep = "")) +
+  ylab(paste("MDS2 - ", mds.var.per[2], "%", sep = "")) +
+  ggtitle("MDS plot using (1 - Random Forest Proximities)")
+```
+
+
+
+
+
+
+```{r, include=FALSE}
+#Next steps:
+#-figure out if the model is broken or just very bad 
+#-Gradient Boosting?
+#xGboost? 
+
+
+
+#Fixing logit plots in the beginning 
+```
+
+
+
+
+
+
+
+
 
 
 
