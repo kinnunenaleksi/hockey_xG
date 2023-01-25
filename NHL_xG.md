@@ -225,7 +225,7 @@ the data. In angle to goal there’s no notable surprises.
 #Shot maps for randomly samples 2500 shots 
 shots_parsed <- shots %>%
   subset(st_x < 88) %>%
-  sample_n(2500)
+  sample_n(1501)
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, col = shots_parsed$goal, alpha = 0.9, size = shots_parsed$goal)) +
@@ -274,27 +274,24 @@ In the plot below, the the main downside of LPM model becomes apparent:
 results are not bound \[0,1\].
 
 ``` r
-ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
-  geom_point() + geom_smooth(method = "lm", se = F) +
-  theme_bw()
-```
-
-![](NHL_xG_files/figure-gfm/LPM%20Plot-1.png)<!-- -->
-
-``` r
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
 artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
+artificial_shots$distance_sq <- artificial_shots$distance^2
 artificial_shots$xg <- predict(LPM, artificial_shots, type = "response")
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg, alpha = 1)) +
   scale_color_gradient2(low = "white", mid="red", midpoint = 0.55, high ="darkred",
-                       scales::rescale(c(0.9,0.1)))
+                       scales::rescale(c(0.9,0.1))) 
+
+ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
+  geom_point(size = 0.01) + geom_smooth(method = "lm", se = F, size = 0.5) +
+  theme_bw()
 ```
 
-![](NHL_xG_files/figure-gfm/Heatmap%20LPM-1.png)<!-- -->
+<img src="NHL_xG_files/figure-gfm/Heatmap LPM-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/Heatmap LPM-2.png" width="50%" />
 
 ### Logit Part 1
 
@@ -314,14 +311,13 @@ $P = \frac{1}{1 + - exp^{-{(\beta_0 + \beta_1 x_1 \beta_2 x_2 + …)}}}$
 ``` r
 ggplot(logit, aes(x=distance, y =goal)) +
   geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
-  scale_x_reverse() +
   theme_bw() +
   xlab("Distance to Goal") +
   ylab("Probability of Goal") + 
   ggtitle("Distance as an explanatory variable") 
 
 ggplot(logit, aes(x=angle, y =goal)) +
-  geom_point() + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
+  geom_point(size = 0.01) + geom_smooth(method = "glm", method.args = list(family = "quasibinomial"), se = F) +
   theme_bw() +
   xlab("angle to Goal") +
   ylab("Probability of Goal") + 
@@ -336,112 +332,47 @@ we could improve explanatory power of distance, we add a quadratic form
 of it as an extra variable.
 
 ``` r
-shots$distance_sq <- shots$distance^2
+shots_parsed$distance_sq <- shots_parsed$distance^2
 
 logit.2 <- glm(goal ~ distance + distance_sq + angle,
                family = binomial(link = 'logit'),
-               data = shots)
+               data = shots_parsed)
 
-summary(logit.2)
-```
+logit_coef <- logit$coefficients
+logit_distance <- logit_coef["distance"]
+logit_intercept <- logit_coef["(Intercept)"]
 
-    ## 
-    ## Call:
-    ## glm(formula = goal ~ distance + distance_sq + angle, family = binomial(link = "logit"), 
-    ##     data = shots)
-    ## 
-    ## Deviance Residuals: 
-    ##     Min       1Q   Median       3Q      Max  
-    ## -2.3829  -0.4816  -0.3608  -0.2779   3.1150  
-    ## 
-    ## Coefficients:
-    ##               Estimate Std. Error z value Pr(>|z|)    
-    ## (Intercept) -1.982e+00  2.582e-02 -76.759  < 2e-16 ***
-    ## distance    -2.028e-02  1.248e-03 -16.244  < 2e-16 ***
-    ## distance_sq -9.991e-05  1.610e-05  -6.205 5.47e-10 ***
-    ## angle        2.668e-02  5.186e-04  51.437  < 2e-16 ***
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## (Dispersion parameter for binomial family taken to be 1)
-    ## 
-    ##     Null deviance: 578555  on 929390  degrees of freedom
-    ## Residual deviance: 536707  on 929387  degrees of freedom
-    ##   (28 observations deleted due to missingness)
-    ## AIC: 536715
-    ## 
-    ## Number of Fisher Scoring iterations: 6
-
-``` r
 logit.2_coef <- logit.2$coefficients
 logit.2_distance <- logit.2_coef["distance"]
 logit.2_distance_sq <- logit.2_coef["distance_sq"]
 logit.2_intercept <- logit.2_coef["(Intercept)"]
 
-
-b <- data.frame(c(seq(0,150,.1)))
-
+b <- data.frame(c(seq(0,100,.1)))
 a <- (1 / (1 + exp(-logit.2_distance * b - logit.2_distance_sq * b - logit.2_intercept)))
-a.2 <- (1 / (1 + exp(-logit.2_distance * b - logit.2_intercept)))
-
+a.2 <- (1 / (1 + exp(-logit_distance * b - logit_intercept)))
 c <- cbind(a, a.2, b)
 
-
-head(c)
-```
-
-    ##   c.seq.0..150..0.1.. c.seq.0..150..0.1.. c.seq.0..150..0.1..
-    ## 1           0.1210940           0.1210940                 0.0
-    ## 2           0.1208773           0.1208784                 0.1
-    ## 3           0.1206609           0.1206630                 0.2
-    ## 4           0.1204449           0.1204480                 0.3
-    ## 5           0.1202291           0.1202333                 0.4
-    ## 6           0.1200137           0.1200190                 0.5
-
-``` r
 colnames(c) <- c("a", "a.2", "b")
-
-ggplot(c, aes(x=b,y=a.2)) +
-  geom_point(size = 2, col = "darkgreen") + 
-  geom_point(aes(y=a.2), size = 0.1, col = "darkred") +
-  theme_bw() + 
-  ggtitle("Comparing Distance Variables with and without quadratic term") +
-  xlab("Distance to Goal") +
-  ylab("Probability of a Goal")
 ```
-
-![](NHL_xG_files/figure-gfm/Quadratics-1.png)<!-- -->
-
-As we can see, quadratic’s effect is just taking into account the
-‘long-shot bias’, which is caused by empty-net goals.
 
 ``` r
 artificial_shots <- crossing(location_x = seq(30, 88, by = 1), location_y = seq(-37, 37, by = 1))
 
 artificial_shots$distance <- distance(artificial_shots$location_x, artificial_shots$location_y)
 artificial_shots$angle <- angle_theta(artificial_shots$location_x, artificial_shots$location_y)
-#artificial_shots$xg_logit <- 1 / (1 + exp(-logit_intercept - distance(artificial_shots$location_x,artificial_shots$location_y) * logit_distance - angle_theta(artificial_shots$location_x, artificial_shots$location_y) * logit_angle))
-artificial_shots
+artificial_shots$distance_sq <- artificial_shots$distance^2
+
+artificial_shots$xg_logit <- predict(logit.2, artificial_shots, type = "response")
 ```
 
-    ## # A tibble: 4,425 × 4
-    ##    location_x location_y distance angle
-    ##         <dbl>      <dbl>    <dbl> <dbl>
-    ##  1         30        -37     69.6  4.18
-    ##  2         30        -36     69.1  4.25
-    ##  3         30        -35     68.6  4.31
-    ##  4         30        -34     68.1  4.37
-    ##  5         30        -33     67.6  4.44
-    ##  6         30        -32     67.1  4.50
-    ##  7         30        -31     66.6  4.57
-    ##  8         30        -30     66.2  4.63
-    ##  9         30        -29     65.7  4.69
-    ## 10         30        -28     65.3  4.75
-    ## # … with 4,415 more rows
-
 ``` r
-artificial_shots$xg_logit <- predict(logit, artificial_shots, type = "response")
-
+ggplot(c, aes(x=b,y=a)) +
+  geom_point(size = 0.1, col = "darkgreen") + 
+  geom_point(aes(y=a.2), size = 0.1, col = "darkred") +
+  theme_bw() + 
+  ggtitle("Comparing Distance Variables with and without quadratic term") +
+  xlab("Distance to Goal") +
+  ylab("Probability of a Goal")
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = artificial_shots$location_y, y = artificial_shots$location_x, col = artificial_shots$xg_logit, alpha = 0.1)) +
@@ -449,7 +380,12 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
                        scales::rescale(c(0.1,0.9))) 
 ```
 
-![](NHL_xG_files/figure-gfm/Heatmap%20logit-1.png)<!-- -->
+<img src="NHL_xG_files/figure-gfm/LogitPlots1-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/LogitPlots1-2.png" width="50%" />
+
+As we can see from the graph above, including the quadratic term makes
+quite a difference. Notably, it increases the probability of scoring
+when close to the goal, and decreases the probabilty when further away,
+making the ‘empty-net bias’ smaller.
 
 ## Other Regression and Classification Models
 
@@ -464,7 +400,21 @@ ensured unbiasedness when testing the models.
 
 ``` r
 parsed_shots <- shots %>%
-  select(goal, distance, angle, secondaryType)
+  select(goal, distance, angle, secondaryType) %>%
+  mutate(distance_sq = (distance^2))
+  
+head(parsed_shots)  
+```
+
+    ##   goal distance     angle secondaryType distance_sq
+    ## 1    0 20.12461 15.255119    Wrist Shot         405
+    ## 2    1  5.09902 19.440035   Wrap-around          26
+    ## 3    0 33.73426  9.947172    Wrist Shot        1138
+    ## 4    0 57.27128  5.448598     Slap Shot        3280
+    ## 5    0 37.73592  7.727217    Wrist Shot        1424
+    ## 6    0 56.75385  5.865971     Slap Shot        3221
+
+``` r
 train_test_split <- initial_split(data = parsed_shots, prop = 0.7)
 
 train_data <- train_test_split %>%
@@ -489,72 +439,36 @@ Lets add this to the regression and see how the coefficients for
 distance and angle change.
 
 ``` r
-logit.3 <- glm(goal ~ distance + angle + secondaryType,
+logit.3 <- glm(goal ~ distance + angle + secondaryType + distance_sq,
              family = binomial(link = 'logit'),
              data = train_data)
 
-logit_pred <- predict(logit, test_data, type = "response")
-logit.2_pred <- predict(logit.2, test_data, type = "response")
 
-logit.3_pred <- predict(logit.3, test_data, type = "response")
-table(shots$goal)
-```
+#Creating vectors of predictors for the new model with secondaryType and for the last one without it 
+#logit_pred <- predict(logit, test_data, type = "response")
+logit.2_pred <- predict(logit.2, train_data, type = "response")
+logit.3_pred <- predict(logit.3, train_data, type = "response")
 
-    ## 
-    ##      0      1 
-    ## 842232  87187
-
-``` r
-head(logit.3_pred)
-```
-
-    ##          3          9         11         15         21         22 
-    ## 0.06773725 0.02964419 0.08670248 0.03249586 0.06033679 0.22335087
-
-``` r
-sum(logit.3_pred > 0.01, na.rm=TRUE)
-```
-
-    ## [1] 277516
-
-``` r
 #Comparing Logit models 
-roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit.2_pred))
+roc.test(roc(train_data$goal, logit.3_pred), roc(train_data$goal, logit.2_pred))
 ```
 
     ## 
     ##  DeLong's test for two correlated ROC curves
     ## 
-    ## data:  roc(test_data$goal, logit.3_pred) and roc(test_data$goal, logit.2_pred)
-    ## Z = 19.538, p-value < 2.2e-16
+    ## data:  roc(train_data$goal, logit.3_pred) and roc(train_data$goal, logit.2_pred)
+    ## Z = 25.007, p-value < 2.2e-16
     ## alternative hypothesis: true difference in AUC is not equal to 0
     ## 95 percent confidence interval:
-    ##  0.008183353 0.010008289
+    ##  0.007041552 0.008239227
     ## sample estimates:
     ## AUC of roc1 AUC of roc2 
-    ##   0.7169527   0.7078569
-
-``` r
-#Comparing better Logit model to the LPM model
-roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit_pred))
-```
-
-    ## 
-    ##  DeLong's test for two correlated ROC curves
-    ## 
-    ## data:  roc(test_data$goal, logit.3_pred) and roc(test_data$goal, logit_pred)
-    ## Z = 19.538, p-value < 2.2e-16
-    ## alternative hypothesis: true difference in AUC is not equal to 0
-    ## 95 percent confidence interval:
-    ##  0.008183353 0.010008289
-    ## sample estimates:
-    ## AUC of roc1 AUC of roc2 
-    ##   0.7169527   0.7078569
+    ##   0.7166026   0.7089622
 
 ``` r
 par(pty = "s")
 
-logit.3_roc <- roc(test_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
+logit.3_roc <- roc(train_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
   legacy.axes = TRUE, percent = TRUE, xlab = "False Positive Percentage",
   ylab = "True Positive Percentage") 
 ```
@@ -568,25 +482,35 @@ logit.3_threshold
 ```
 
     ##    threshold specificity sensitivity
-    ## 1 0.08367765    61.10511    73.45258
+    ## 1 0.08501776    62.49322    71.84343
 
 ``` r
 #Creating Confusion Matrix
-logit.3_conf <- table(logit.3_pred>=logit.3_threshold$threshold, test_data$goal)
+logit.3_conf <- table(logit.3_pred>=logit.3_threshold$threshold, train_data$goal)
+logit.3_conf
+```
+
+    ##        
+    ##              0      1
+    ##   FALSE 368520  17142
+    ##   TRUE  221176  43739
+
+``` r
+#Model accuracy
 sum(diag(logit.3_conf))/sum(logit.3_conf)*100
 ```
 
-    ## [1] 62.26633
+    ## [1] 63.36821
 
 ### Random Forest
 
 ``` r
 ## Making the train_data smaller due to memory issues 
-train_data <- sample_n(train_data, size = 1000)
+train_data <- sample_n(train_data, size = 2500)
 
 ## Changing labels from 0 and 1 to "Goal" and "Not Goal" 
 train_data$goal <- ifelse(test=train_data$goal == "1", yes = "Goal", no = "Not Goal")
-test_data$goal <- ifelse(test=test_data$goal == 0, yes = "Not Goal", no = "Goal")
+test_data$goal <- ifelse(test=test_data$goal == "0", yes = "Not Goal", no = "Goal")
 
 ## Changing the class of some columns for the commands to work
 train_data$goal <- as.factor(train_data$goal)
@@ -598,11 +522,12 @@ test_data$secondaryType <- as.factor(test_data$secondaryType)
 str(train_data)
 ```
 
-    ## 'data.frame':    1000 obs. of  4 variables:
-    ##  $ goal         : Factor w/ 2 levels "Goal","Not Goal": 2 2 2 1 2 2 2 2 2 2 ...
-    ##  $ distance     : num  47 38.1 32.2 34 31.8 ...
-    ##  $ angle        : num  5.76 8.29 9.25 7.46 4.46 ...
-    ##  $ secondaryType: Factor w/ 7 levels "Backhand","Deflected",..: 7 4 7 7 2 7 3 1 3 7 ...
+    ## 'data.frame':    2500 obs. of  5 variables:
+    ##  $ goal         : Factor w/ 2 levels "Goal","Not Goal": 2 2 2 2 2 2 2 2 2 2 ...
+    ##  $ distance     : num  27.9 23.4 13 60.5 16 ...
+    ##  $ angle        : num  11.5 13.76 2.13 5.25 21.16 ...
+    ##  $ secondaryType: Factor w/ 7 levels "Backhand","Deflected",..: 4 4 7 7 2 5 7 4 3 7 ...
+    ##  $ distance_sq  : num  776 548 170 3665 257 ...
     ##  - attr(*, "na.action")= 'omit' Named int [1:4007923] 1 2 3 4 7 9 10 11 13 14 ...
     ##   ..- attr(*, "names")= chr [1:4007923] "1" "2" "3" "4" ...
 
@@ -613,14 +538,14 @@ sum(is.na(train_data))
 
     ## [1] 0
 
-As we can see, we have 15 NA’s in the ‘Angle’ Column. This is fixed by
-na.action = na.roughfix, which fills NA’s with column median. Because of
-the huge sample size, more advanced imputations are not needed.
+We are taking the sample of 2 500 shots from the original train_data due
+to memory issues. Due to this sampling, we don’t have to worry about
+NA’s, because tidyr only takes values without NA’s. Otherwise, we would
+probably use na.action = na.roughfix to impute the missing values.
 
 ``` r
-## Making the model 
-#set.seed(2023)
-rf_model <- randomForest(goal ~ ., data = train_data, proximity = TRUE, na.action = na.roughfix, ntree = 1000)
+## Making the model.
+rf_model <- randomForest(goal ~ ., data = train_data, proximity = TRUE, ntree = 1000)
 
 ## This is to see how many trees are necessary for accurate predictions. It calculates the error rates after making of each tree. 
 oob.error.data <- data.frame(
@@ -629,13 +554,13 @@ oob.error.data <- data.frame(
   error=c(rf_model$err.rate[,"OOB"],
           rf_model$err.rate[,"Goal"],
           rf_model$err.rate[,"Not Goal"]))
+
 ggplot(data=oob.error.data, aes(x=trees, y=error)) +
-  geom_line(aes(color=type))
-```
+  geom_line(aes(color=type)) +
+  theme_bw() +
+  ggtitle("OOB Error Rate")
 
-![](NHL_xG_files/figure-gfm/RandomForest-1.png)<!-- -->
 
-``` r
 ## Calculating Out-of-the-bag error rates for different mtrys, which means how many variables are randomly sampled as candidates at each split. 
 oob.values <- vector(length = 10)
 for(i in 1:10){
@@ -648,7 +573,7 @@ for(i in 1:10){
 oob.values
 ```
 
-    ##  [1] 0.113 0.135 0.133 0.132 0.133 0.137 0.140 0.136 0.134 0.135
+    ##  [1] 0.0964 0.1204 0.1236 0.1236 0.1224 0.1252 0.1212 0.1252 0.1216 0.1228
 
 ``` r
 ## Building a MDS plot 
@@ -660,24 +585,48 @@ mds.data <- data.frame(Sample=rownames(mds.values),
                        X=mds.values[,1],
                        Y = mds.values[,2],
                        Status = train_data$goal)
-head(mds.values)
-```
 
-    ##         [,1]       [,2]
-    ## 1  4.3412247 -3.4266050
-    ## 2 -2.5138965  1.3261459
-    ## 3  3.1457490  2.4746009
-    ## 4  4.1899040  1.6681448
-    ## 5 -0.9771242  0.5149234
-    ## 6  3.2347411 -1.8260203
-
-``` r
 ggplot(data=mds.data, aes(x=X, y=Y, label = Sample)) +
   theme_bw() +
   geom_text(aes(color=Status)) +
   xlab(paste("MDS1 - ", mds.var.per[1], "%", sep = "")) +
   ylab(paste("MDS2 - ", mds.var.per[2], "%", sep = "")) +
-  ggtitle("MDS plot using (1 - Random Forest Proximities)")
+  ggtitle("MDS plot using (1 - Random Forest Proximities)") +
+  theme_bw()
 ```
 
-![](NHL_xG_files/figure-gfm/RandomForest-2.png)<!-- -->
+<img src="NHL_xG_files/figure-gfm/RandomForest-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/RandomForest-2.png" width="50%" />
+
+``` r
+test_data <- sample_n(test_data, 1000)
+varImpPlot(rf_model)
+
+rf_model.pred <- predict(rf_model, test_data, select = -goal,
+                         type = "class")
+
+
+rf_model.pred.results <- table(rf_model.pred, test_data$goal)
+head(rf_model.pred.results)
+```
+
+    ##              
+    ## rf_model.pred Goal Not Goal
+    ##      Goal        3       26
+    ##      Not Goal   91      880
+
+``` r
+rf_model.pred.results
+```
+
+    ##              
+    ## rf_model.pred Goal Not Goal
+    ##      Goal        3       26
+    ##      Not Goal   91      880
+
+``` r
+print(rf_model.accuracy <- sum(diag(rf_model.pred.results)) / sum(rf_model.pred.results))                                
+```
+
+    ## [1] 0.883
+
+<img src="NHL_xG_files/figure-gfm/unnamed-chunk-2-1.png" width="50%" />
