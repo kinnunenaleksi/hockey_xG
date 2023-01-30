@@ -11,36 +11,25 @@ NHL xG
     id="toc-probability-of-a-goal-given-distance-or-angle">Probability of a
     Goal Given Distance or angle</a>
   - <a href="#shot-plots" id="toc-shot-plots">Shot Plots</a>
-- <a href="#basic-regression-models"
-  id="toc-basic-regression-models">Basic Regression Models</a>
+- <a href="#model-building" id="toc-model-building">Model Building</a>
   - <a href="#linear-probability-model"
     id="toc-linear-probability-model">Linear Probability Model</a>
-  - <a href="#logit-part-1" id="toc-logit-part-1">Logit Part 1</a>
-- <a href="#other-regression-and-classification-models"
-  id="toc-other-regression-and-classification-models">Other Regression and
-  Classification Models</a>
-  - <a href="#introduction-and-adding-variables"
-    id="toc-introduction-and-adding-variables">Introduction and adding
-    variables</a>
-  - <a href="#logit-part-2" id="toc-logit-part-2">Logit Part 2</a>
+  - <a href="#logit" id="toc-logit">Logit</a>
   - <a href="#random-forest" id="toc-random-forest">Random Forest</a>
+  - <a href="#xgboost" id="toc-xgboost">xGBoost</a>
+- <a href="#sources" id="toc-sources">Sources</a>
 
 ## Overview and Scope
 
 The aim of this project is to build different naive Expected Goals
-models using LPM, logit and possibly other regression models. The data
-is obtained from
-[Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data).
+models using LPM, logit and possibly other regression models at some
+point. The data is obtained from
+[Kaggle](https://www.kaggle.com/datasets/martinellis/nhl-game-data) and
+valuables sources that have been utilized are in this
+[section](Sources).
 
-Valuable sources have been:
-
-- <https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R>
-- <https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/>
-- <https://www.datofutbol.cl/xg-model/>
-- <https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752>
-- <https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html>
-- <https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html>
-- <https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb>
+Unfortunately Github-flavored documents don’t support code-folding, and
+hence as of now the notebook is showing all the code even for the plots.
 
 ## Data Wrangling
 
@@ -92,11 +81,12 @@ x <- abs(shots$st_x)
 y <- shots$st_y
 ```
 
-Creating functions for distance and angle. Distance is calculated by
+Creating functions for distance and angle. Distance from the shot place
+to the center of the goal is calculated by
 
 $c^2 = a^2 + b^2 \Rightarrow c = \sqrt{a^2 + b^2 }$
 
-The angle to the goal is calculated as follows,
+The angle visible to the player is calculated as follows,
 
 $\tan \theta = \frac{\text{goal width } * x }{x^2 + y^2 - (\frac{\text{goal width}}{2})^2 }$
 
@@ -222,15 +212,15 @@ the data. In angle to goal there’s no notable surprises.
 ### Shot Plots
 
 ``` r
-#Shot maps for randomly samples 2500 shots 
+#Shot maps for randomly samples 2500 shots for faster computations and more informative plots 
 shots_parsed <- shots %>%
   subset(st_x < 88) %>%
-  sample_n(1501)
+  sample_n(2500)
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_point(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, col = shots_parsed$goal, alpha = 0.9, size = shots_parsed$goal)) +
   scale_color_binned(low ="red", high = "darkgreen") +
-  scale_size_continuous(range = c(1,2))
+  scale_size_continuous(range = c(1,3))
 
 geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
   geom_density2d_filled(aes(x = shots_parsed$st_y, y = shots_parsed$st_x, alpha = 0.5),
@@ -240,35 +230,69 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 
 <img src="NHL_xG_files/figure-gfm/shotPlots-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/shotPlots-2.png" width="50%" />
 
-## Basic Regression Models
+## Model Building
+
+Here we split the data as a cross validation technique, using 70% of the
+data as the training data and the rest 30% as the testing data. A new
+explanatory variable - secondaryType - is introduced, which includes
+information on the shot type. It will be used in the later models.
+
+``` r
+unique(shots$secondaryType)
+```
+
+    ## [1] "Wrist Shot"  "Wrap-around" "Slap Shot"   "Tip-In"      "Snap Shot"  
+    ## [6] "Backhand"    "Deflected"
+
+``` r
+## Checking for NA values 
+sum(is.na(shots))
+```
+
+    ## [1] 28
+
+``` r
+parsed_shots <- na.omit(shots) %>%
+  select(goal, distance, angle, secondaryType) %>%
+  mutate(distance_sq = (distance^2))
+  
+train_test_split <- initial_split(data = parsed_shots, prop = 0.7)
+
+train_data <- train_test_split %>%
+  training()
+test_data <- train_test_split %>%
+  testing()
+```
+
+Because the quantity of NA’s was so small, we can just omit them from
+the further analysis.
 
 ### Linear Probability Model
 
 ``` r
-LPM <- lm(goal ~ distance + angle, data = shots)
+LPM <- lm(goal ~ distance + angle, data = train_data)
 summary(LPM)
 ```
 
     ## 
     ## Call:
-    ## lm(formula = goal ~ distance + angle, data = shots)
+    ## lm(formula = goal ~ distance + angle, data = train_data)
     ## 
     ## Residuals:
     ##      Min       1Q   Median       3Q      Max 
-    ## -0.91679 -0.10933 -0.06287 -0.03935  1.01867 
+    ## -0.91299 -0.10979 -0.06320 -0.03958  1.01889 
     ## 
     ## Coefficients:
     ##               Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)  7.182e-02  1.213e-03   59.20   <2e-16 ***
-    ## distance    -1.076e-03  2.243e-05  -47.99   <2e-16 ***
-    ## angle        4.706e-03  4.077e-05  115.43   <2e-16 ***
+    ## (Intercept)  7.283e-02  1.452e-03   50.17   <2e-16 ***
+    ## distance    -1.088e-03  2.684e-05  -40.54   <2e-16 ***
+    ## angle        4.680e-03  4.879e-05   95.92   <2e-16 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.2842 on 929388 degrees of freedom
-    ##   (28 observations deleted due to missingness)
-    ## Multiple R-squared:  0.05006,    Adjusted R-squared:  0.05006 
-    ## F-statistic: 2.449e+04 on 2 and 929388 DF,  p-value: < 2.2e-16
+    ## Residual standard error: 0.2846 on 650570 degrees of freedom
+    ## Multiple R-squared:  0.04981,    Adjusted R-squared:  0.04981 
+    ## F-statistic: 1.705e+04 on 2 and 650570 DF,  p-value: < 2.2e-16
 
 In the plot below, the the main downside of LPM model becomes apparent:
 results are not bound \[0,1\].
@@ -293,7 +317,7 @@ ggplot(data = LPM, mapping=aes(x=angle, y = goal)) +
 
 <img src="NHL_xG_files/figure-gfm/Heatmap LPM-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/Heatmap LPM-2.png" width="50%" />
 
-### Logit Part 1
+### Logit
 
 Due to the significant downsides of LPM, logistic regression is
 henceforth used.
@@ -301,7 +325,7 @@ henceforth used.
 ``` r
 logit <- glm(goal ~ distance + angle,
              family = binomial(link = 'logit'),
-             data = shots)
+             data = train_data)
 ```
 
 In a logit model, the probability of an event is given by
@@ -332,11 +356,9 @@ we could improve explanatory power of distance, we add a quadratic form
 of it as an extra variable.
 
 ``` r
-shots_parsed$distance_sq <- shots_parsed$distance^2
-
 logit.2 <- glm(goal ~ distance + distance_sq + angle,
                family = binomial(link = 'logit'),
-               data = shots_parsed)
+               data = train_data)
 
 logit_coef <- logit$coefficients
 logit_distance <- logit_coef["distance"]
@@ -382,93 +404,57 @@ geom_hockey(league = "NHL", rotation = 90, display_range = "ozone") +
 
 <img src="NHL_xG_files/figure-gfm/LogitPlots1-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/LogitPlots1-2.png" width="50%" />
 
-As we can see from the graph above, including the quadratic term makes
-quite a difference. Notably, it increases the probability of scoring
-when close to the goal, and decreases the probabilty when further away,
-making the ‘empty-net bias’ smaller.
+As we can see from the graph above, including the quadratic term makes a
+difference but not a suitable one. Namely, it decreases the probability
+when close the goal and increases it when further away, increasing the
+‘empty-net bias’. Hence, we keep using the original logit model as the
+baseline.
 
-## Other Regression and Classification Models
-
-### Introduction and adding variables
-
-Note: this part is more experimental and is very prone to mistakes.
-
-Henceforth we will be comparing the effectivness of the models, hence
-the data will be split into training- and testing data. Here 70% of the
-full sample is used for training and the remaining 30% for testing. This
-ensured unbiasedness when testing the models.
+Next, we add the previously mentioned shot type into the regression and
+compare the perfomance between that and the baseline model.
 
 ``` r
-parsed_shots <- shots %>%
-  select(goal, distance, angle, secondaryType) %>%
-  mutate(distance_sq = (distance^2))
-  
-head(parsed_shots)  
-```
-
-    ##   goal distance     angle secondaryType distance_sq
-    ## 1    0 20.12461 15.255119    Wrist Shot         405
-    ## 2    1  5.09902 19.440035   Wrap-around          26
-    ## 3    0 33.73426  9.947172    Wrist Shot        1138
-    ## 4    0 57.27128  5.448598     Slap Shot        3280
-    ## 5    0 37.73592  7.727217    Wrist Shot        1424
-    ## 6    0 56.75385  5.865971     Slap Shot        3221
-
-``` r
-train_test_split <- initial_split(data = parsed_shots, prop = 0.7)
-
-train_data <- train_test_split %>%
-  training()
-test_data <- train_test_split %>%
-  testing()
-```
-
-Let’s broaden our analysis by adding an other explanatory factor to the
-regression: shot type. We have the following options:
-
-``` r
-unique(shots$secondaryType)
-```
-
-    ## [1] "Wrist Shot"  "Wrap-around" "Slap Shot"   "Tip-In"      "Snap Shot"  
-    ## [6] "Backhand"    "Deflected"
-
-### Logit Part 2
-
-Lets add this to the regression and see how the coefficients for
-distance and angle change.
-
-``` r
-logit.3 <- glm(goal ~ distance + angle + secondaryType + distance_sq,
+logit.3 <- glm(goal ~ distance + angle + secondaryType,
              family = binomial(link = 'logit'),
              data = train_data)
 
-
 #Creating vectors of predictors for the new model with secondaryType and for the last one without it 
-#logit_pred <- predict(logit, test_data, type = "response")
-logit.2_pred <- predict(logit.2, train_data, type = "response")
-logit.3_pred <- predict(logit.3, train_data, type = "response")
+logit_pred <- predict(logit, test_data, type = "response")
+logit.3_pred <- predict(logit.3, test_data, type = "response")
 
-#Comparing Logit models 
-roc.test(roc(train_data$goal, logit.3_pred), roc(train_data$goal, logit.2_pred))
+#Comparing Logit models with AUC values
+roc.test(roc(test_data$goal, logit.3_pred), roc(test_data$goal, logit_pred))
 ```
 
     ## 
     ##  DeLong's test for two correlated ROC curves
     ## 
-    ## data:  roc(train_data$goal, logit.3_pred) and roc(train_data$goal, logit.2_pred)
-    ## Z = 25.007, p-value < 2.2e-16
+    ## data:  roc(test_data$goal, logit.3_pred) and roc(test_data$goal, logit_pred)
+    ## Z = 21.105, p-value < 2.2e-16
     ## alternative hypothesis: true difference in AUC is not equal to 0
     ## 95 percent confidence interval:
-    ##  0.007041552 0.008239227
+    ##  0.008810688 0.010614644
     ## sample estimates:
     ## AUC of roc1 AUC of roc2 
-    ##   0.7166026   0.7089622
+    ##   0.7186406   0.7089280
+
+``` r
+# Comparing models with AIC values 
+print(paste("AIC without shot type:", logit$aic))
+```
+
+    ## [1] "AIC without shot type: 376620.331773441"
+
+``` r
+print(paste("AIC with shot type:", logit.3$aic))
+```
+
+    ## [1] "AIC with shot type: 373992.665487717"
 
 ``` r
 par(pty = "s")
 
-logit.3_roc <- roc(train_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
+logit.3_roc <- roc(test_data$goal, logit.3_pred, plot = TRUE, print.auc = TRUE, col = "darkred",
   legacy.axes = TRUE, percent = TRUE, xlab = "False Positive Percentage",
   ylab = "True Positive Percentage") 
 ```
@@ -482,70 +468,219 @@ logit.3_threshold
 ```
 
     ##    threshold specificity sensitivity
-    ## 1 0.08501776    62.49322    71.84343
+    ## 1 0.08503884    61.70512    73.04465
+
+Here is one of the puzzles when using a logit model: which threshold to
+use when categorizing a shot. Using the coords function, we find the
+threshold which maximizes both accuracy and specifity, but not the model
+accuracy. After trying different thresholds, we could get the model
+accuracy above 90%, but with the cost that specifity drops down to under
+30%. Therefore, for the purposes of this project we continue with the
+value given by the coords function.
 
 ``` r
 #Creating Confusion Matrix
-logit.3_conf <- table(logit.3_pred>=logit.3_threshold$threshold, train_data$goal)
+logit.3_conf <- table(logit.3_pred>=logit.3_threshold$threshold, test_data$goal)
 logit.3_conf
 ```
 
     ##        
     ##              0      1
-    ##   FALSE 368520  17142
-    ##   TRUE  221176  43739
+    ##   FALSE 156014   7003
+    ##   TRUE   96824  18977
 
 ``` r
 #Model accuracy
 sum(diag(logit.3_conf))/sum(logit.3_conf)*100
 ```
 
-    ## [1] 63.36821
+    ## [1] 62.76173
+
+``` r
+## Calculating Pseudo R^2
+ll.null <- logit.3$null.deviance/-2
+ll.proposed <- logit.3$deviance/-2
+
+(ll.null - ll.proposed) / ll.null
+```
+
+    ## [1] 0.07838084
+
+``` r
+## Calculating the p-value for the pseudo R squared
+1 - pchisq(2*(ll.proposed - ll.null), df = (length(logit.3$coefficients) -1))
+```
+
+    ## [1] 0
+
+The pseudo r-squared is very low and the p-value is zero, making the
+statistic robust.
+
+``` r
+pred_logit.3 <- data.frame(prob.of.goal = logit.3$fitted.values,
+                           goal = train_data$goal)
+
+pred_logit.3 <- pred_logit.3[
+  order(pred_logit.3$prob.of.goal, decreasing = FALSE),]
+
+pred_logit.3$rank <- 1:nrow(pred_logit.3)
+
+ggplot(data = pred_logit.3, aes(x = rank, y = prob.of.goal)) +
+  geom_point(aes(color = goal), alpha = 1, shape = 4, stroke = 2) + 
+  scale_color_binned(low = "red", high = "navyblue") +
+  theme_bw() +
+  labs(x = "Index",
+       y = "Probability of a Goal",
+       title = "Overview of the Logit Model")
+```
+
+![](NHL_xG_files/figure-gfm/logit%20overview%20plot-1.png)<!-- -->
+
+Comparing this analysis to the other similar ones, people usually stop
+at this point because for such simple binary classification, logit if
+usually enough. There’s no sense in applying more advanced models if we
+can get by with this. Moreover, tuning hyper parameters (L1, L2,
+elastic-net) similarly have empirically made very little difference to
+the results with so little explanatory variables.
+
+However, I will start tuning the parameters for the logit model and
+introduce other machine learning classification models for own
+educational purposes. Further analysis will be done with the package
+‘mikropml’ (which is built on top of ‘caret’) when adjusting the L2
+Ridge regularization parameter, as elastic net and L1 in this case would
+be useless due of the importance of all variables. Pre-processing steps
+to be made to prepare data for the packages mentioned:
+
+- Creating own column for each shot type and removing the original
+  column
+- Modifying outcome column to not have spaces in the end result
+
+Data will not be centered (at least at this point) to save
+interpretability. Missing values are not an issue, as we omitted all 28
+of them in the beginning.
+
+This dataset is very small compared to the full sample (\~900k shots)
+due to the heavy computation made by caret and mikropml. This will
+possibly be solved in the future by using parallelized processing.
+
+``` r
+library(caret)
+library(mikropml)
+
+parsed_shots.logit <- parsed_shots %>%
+  select(goal, distance, angle, secondaryType) %>%
+  sample_n(size = 2500)
+
+dummy_shots <- dummyVars("~.", data = parsed_shots.logit)
+parsed_shots.logit <- data.frame(predict(dummy_shots, newdata = parsed_shots.logit))
+
+parsed_shots.logit$goal <- ifelse(test=parsed_shots.logit$goal == "1", yes = "goal", no = "notagoal")
+parsed_shots.logit$goal <- as.factor(parsed_shots.logit$goal)
+str(parsed_shots.logit)
+```
+
+    ## 'data.frame':    2500 obs. of  10 variables:
+    ##  $ goal                    : Factor w/ 2 levels "goal","notagoal": 2 2 1 2 2 1 2 2 2 2 ...
+    ##  $ distance                : num  38.6 10.8 44.7 20.6 10 ...
+    ##  $ angle                   : num  8.29 26.57 6.87 16.09 33.11 ...
+    ##  $ secondaryTypeBackhand   : num  0 1 0 0 0 0 0 0 0 0 ...
+    ##  $ secondaryTypeDeflected  : num  0 0 0 0 0 0 0 0 0 0 ...
+    ##  $ secondaryTypeSlap.Shot  : num  0 0 0 0 0 0 1 0 0 0 ...
+    ##  $ secondaryTypeSnap.Shot  : num  0 0 1 0 0 1 0 0 0 0 ...
+    ##  $ secondaryTypeTip.In     : num  0 0 0 0 1 0 0 0 0 0 ...
+    ##  $ secondaryTypeWrap.around: num  0 0 0 0 0 0 0 0 0 0 ...
+    ##  $ secondaryTypeWrist.Shot : num  1 0 0 1 0 0 0 1 1 1 ...
+
+``` r
+get_srn_results <- run_ml(parsed_shots.logit,
+                          method ="glmnet",
+                          outcome_colname = "goal",
+                          training_frac = 0.8,
+                          kfold = 3,
+                          seed = 1999)
+
+get_srn_results$trained_model
+```
+
+    ## glmnet 
+    ## 
+    ## 2001 samples
+    ##    9 predictor
+    ##    2 classes: 'goal', 'notagoal' 
+    ## 
+    ## No pre-processing
+    ## Resampling: Cross-Validated (3 fold, repeated 100 times) 
+    ## Summary of sample sizes: 1333, 1335, 1334, 1335, 1334, 1333, ... 
+    ## Resampling results across tuning parameters:
+    ## 
+    ##   lambda  logLoss    AUC        prAUC      Accuracy   Kappa          F1        
+    ##   1e-04   0.2773047  0.7233463  0.5856538  0.9094654   2.282663e-02  0.04607646
+    ##   1e-03   0.2773047  0.7233463  0.5856538  0.9094654   2.282663e-02  0.04607646
+    ##   1e-02   0.2773620  0.7232032  0.5857039  0.9095804   2.093704e-02  0.04431809
+    ##   1e-01   0.2827281  0.7166782  0.5821340  0.9095306  -2.959824e-05         NaN
+    ##   1e+00   0.2977691  0.7061329  0.5757637  0.9095456   0.000000e+00         NaN
+    ##   1e+01   0.3028915  0.7037235  0.5743715  0.9095456   0.000000e+00         NaN
+    ##   Sensitivity  Specificity  Pos_Pred_Value  Neg_Pred_Value  Precision
+    ##   0.01458834   0.9984615    0.5389043       0.9106239       0.5389043
+    ##   0.01458834   0.9984615    0.5389043       0.9106239       0.5389043
+    ##   0.01320674   0.9987253    0.5657573       0.9105312       0.5657573
+    ##   0.00000000   0.9999835    0.0000000       0.9095442       0.0000000
+    ##   0.00000000   1.0000000          NaN       0.9095456             NaN
+    ##   0.00000000   1.0000000          NaN       0.9095456             NaN
+    ##   Recall      Detection_Rate  Balanced_Accuracy
+    ##   0.01458834  0.001319282     0.5065249        
+    ##   0.01458834  0.001319282     0.5065249        
+    ##   0.01320674  0.001194329     0.5059660        
+    ##   0.00000000  0.000000000     0.4999918        
+    ##   0.00000000  0.000000000     0.5000000        
+    ##   0.00000000  0.000000000     0.5000000        
+    ## 
+    ## Tuning parameter 'alpha' was held constant at a value of 0
+    ## AUC was used to select the optimal model using the largest value.
+    ## The final values used for the model were alpha = 0 and lambda = 0.001.
+
+As suspected, lambda value is very small and hence regularization makes
+very little difference.
 
 ### Random Forest
 
+As random forest calculation is computationally heavy and parallel
+computation is not yet introduced, we will make the dataset even smaller
+and pivot back to secondaryType explanatory factor (insted of having
+multiple columns for each shot type)
+
 ``` r
 ## Making the train_data smaller due to memory issues 
-train_data <- sample_n(train_data, size = 2500)
+
+
+
+parsed_shots.rf <- parsed_shots %>%
+  select(goal, distance, angle, secondaryType) %>%
+  sample_n(size = 1000)
 
 ## Changing labels from 0 and 1 to "Goal" and "Not Goal" 
-train_data$goal <- ifelse(test=train_data$goal == "1", yes = "Goal", no = "Not Goal")
-test_data$goal <- ifelse(test=test_data$goal == "0", yes = "Not Goal", no = "Goal")
+parsed_shots.rf$goal <- ifelse(test=parsed_shots.rf$goal == "1", yes = "Goal", no = "Not Goal")
 
 ## Changing the class of some columns for the commands to work
-train_data$goal <- as.factor(train_data$goal)
-train_data$secondaryType <- as.factor(train_data$secondaryType)
-test_data$goal <- as.factor(test_data$goal)
-test_data$secondaryType <- as.factor(test_data$secondaryType)
+parsed_shots.rf$goal <- as.factor(parsed_shots.rf$goal)
+parsed_shots.rf$secondaryType <- as.factor(parsed_shots.rf$secondaryType)
 
 ## Checking all classes are either numerical or factor
 str(train_data)
 ```
 
-    ## 'data.frame':    2500 obs. of  5 variables:
-    ##  $ goal         : Factor w/ 2 levels "Goal","Not Goal": 2 2 2 2 2 2 2 2 2 2 ...
-    ##  $ distance     : num  27.9 23.4 13 60.5 16 ...
-    ##  $ angle        : num  11.5 13.76 2.13 5.25 21.16 ...
-    ##  $ secondaryType: Factor w/ 7 levels "Backhand","Deflected",..: 4 4 7 7 2 5 7 4 3 7 ...
-    ##  $ distance_sq  : num  776 548 170 3665 257 ...
-    ##  - attr(*, "na.action")= 'omit' Named int [1:4007923] 1 2 3 4 7 9 10 11 13 14 ...
-    ##   ..- attr(*, "names")= chr [1:4007923] "1" "2" "3" "4" ...
-
-``` r
-## Calculating the amount of NA's 
-sum(is.na(train_data))
-```
-
-    ## [1] 0
-
-We are taking the sample of 2 500 shots from the original train_data due
-to memory issues. Due to this sampling, we don’t have to worry about
-NA’s, because tidyr only takes values without NA’s. Otherwise, we would
-probably use na.action = na.roughfix to impute the missing values.
+    ## 'data.frame':    650573 obs. of  5 variables:
+    ##  $ goal         : int  0 0 0 0 0 0 0 0 1 0 ...
+    ##  $ distance     : num  17.7 10.4 48.1 13 61.7 ...
+    ##  $ angle        : num  14.39 30.96 6.99 10.62 5.33 ...
+    ##  $ secondaryType: chr  "Wrist Shot" "Wrist Shot" "Wrist Shot" "Backhand" ...
+    ##  $ distance_sq  : num  313 109 2309 169 3805 ...
+    ##  - attr(*, "na.action")= 'omit' Named int [1:28] 12765 65754 69394 96807 158857 160780 179790 196741 221925 263543 ...
+    ##   ..- attr(*, "names")= chr [1:28] "12765" "65754" "69394" "96807" ...
 
 ``` r
 ## Making the model.
-rf_model <- randomForest(goal ~ ., data = train_data, proximity = TRUE, ntree = 1000)
+rf_model <- randomForest(goal ~ ., data = parsed_shots.rf, proximity = TRUE, ntree = 1000)
 
 ## This is to see how many trees are necessary for accurate predictions. It calculates the error rates after making of each tree. 
 oob.error.data <- data.frame(
@@ -564,7 +699,7 @@ ggplot(data=oob.error.data, aes(x=trees, y=error)) +
 ## Calculating Out-of-the-bag error rates for different mtrys, which means how many variables are randomly sampled as candidates at each split. 
 oob.values <- vector(length = 10)
 for(i in 1:10){
-  temp.rf_model <- randomForest(goal ~., data = train_data, mtry = i,
+  temp.rf_model <- randomForest(goal ~., data = parsed_shots.rf, mtry = i,
                                 ntree = 100)
   oob.values[i] <- temp.rf_model$err.rate[nrow(temp.rf_model$err.rate), 1]
 }
@@ -573,7 +708,7 @@ for(i in 1:10){
 oob.values
 ```
 
-    ##  [1] 0.0964 0.1204 0.1236 0.1236 0.1224 0.1252 0.1212 0.1252 0.1216 0.1228
+    ##  [1] 0.097 0.118 0.123 0.122 0.118 0.117 0.118 0.128 0.121 0.124
 
 ``` r
 ## Building a MDS plot 
@@ -584,7 +719,7 @@ mds.values <- mds.stuff$points
 mds.data <- data.frame(Sample=rownames(mds.values),
                        X=mds.values[,1],
                        Y = mds.values[,2],
-                       Status = train_data$goal)
+                       Status = parsed_shots.rf$goal)
 
 ggplot(data=mds.data, aes(x=X, y=Y, label = Sample)) +
   theme_bw() +
@@ -598,21 +733,20 @@ ggplot(data=mds.data, aes(x=X, y=Y, label = Sample)) +
 <img src="NHL_xG_files/figure-gfm/RandomForest-1.png" width="50%" /><img src="NHL_xG_files/figure-gfm/RandomForest-2.png" width="50%" />
 
 ``` r
-test_data <- sample_n(test_data, 1000)
 varImpPlot(rf_model)
 
-rf_model.pred <- predict(rf_model, test_data, select = -goal,
+rf_model.pred <- predict(rf_model, parsed_shots.rf, select = -goal,
                          type = "class")
 
 
-rf_model.pred.results <- table(rf_model.pred, test_data$goal)
+rf_model.pred.results <- table(rf_model.pred, parsed_shots.rf$goal)
 head(rf_model.pred.results)
 ```
 
     ##              
     ## rf_model.pred Goal Not Goal
-    ##      Goal        3       26
-    ##      Not Goal   91      880
+    ##      Goal       21        1
+    ##      Not Goal   73      905
 
 ``` r
 rf_model.pred.results
@@ -620,13 +754,27 @@ rf_model.pred.results
 
     ##              
     ## rf_model.pred Goal Not Goal
-    ##      Goal        3       26
-    ##      Not Goal   91      880
+    ##      Goal       21        1
+    ##      Not Goal   73      905
 
 ``` r
 print(rf_model.accuracy <- sum(diag(rf_model.pred.results)) / sum(rf_model.pred.results))                                
 ```
 
-    ## [1] 0.883
+    ## [1] 0.926
 
 <img src="NHL_xG_files/figure-gfm/unnamed-chunk-2-1.png" width="50%" />
+
+### xGBoost
+
+## Sources
+
+Valuable sources have been:
+
+- <https://github.com/Dato-Futbol/xg-model/blob/master/04code_evaluate_use_models.R>
+- <https://www.thesignificantgame.com/portfolio/expected-goals-model-with-tidymodels/>
+- <https://www.datofutbol.cl/xg-model/>
+- <https://medium.com/datos-y-ciencia/una-mirada-al-soccer-analytics-usando-r-parte-iii-3bdff9cd3752>
+- <https://rstudio-pubs-static.s3.amazonaws.com/311470_f6e88d4842da46e9941cc6547405a051.html>
+- <https://soccermatics.readthedocs.io/en/latest/gallery/lesson2/plot_xGModelFit.html>
+- <https://github.com/iandragulet/xG_Model_Workflow/blob/main/xG_model_part1.ipynb>
