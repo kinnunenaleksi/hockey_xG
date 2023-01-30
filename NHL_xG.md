@@ -650,10 +650,6 @@ and pivot back to secondaryType explanatory factor (insted of having
 multiple columns for each shot type)
 
 ``` r
-## Making the train_data smaller due to memory issues 
-
-
-
 parsed_shots.rf <- parsed_shots %>%
   select(goal, distance, angle, secondaryType) %>%
   sample_n(size = 1000)
@@ -666,15 +662,14 @@ parsed_shots.rf$goal <- as.factor(parsed_shots.rf$goal)
 parsed_shots.rf$secondaryType <- as.factor(parsed_shots.rf$secondaryType)
 
 ## Checking all classes are either numerical or factor
-str(train_data)
+str(parsed_shots.rf)
 ```
 
-    ## 'data.frame':    650573 obs. of  5 variables:
-    ##  $ goal         : int  0 0 0 0 0 0 0 0 1 0 ...
-    ##  $ distance     : num  17.7 10.4 48.1 13 61.7 ...
-    ##  $ angle        : num  14.39 30.96 6.99 10.62 5.33 ...
-    ##  $ secondaryType: chr  "Wrist Shot" "Wrist Shot" "Wrist Shot" "Backhand" ...
-    ##  $ distance_sq  : num  313 109 2309 169 3805 ...
+    ## 'data.frame':    1000 obs. of  4 variables:
+    ##  $ goal         : Factor w/ 2 levels "Goal","Not Goal": 2 2 2 2 2 2 2 2 2 2 ...
+    ##  $ distance     : num  57.2 22.6 26 44.8 51 ...
+    ##  $ angle        : num  5.98 10.81 13.14 4.8 5.95 ...
+    ##  $ secondaryType: Factor w/ 7 levels "Backhand","Deflected",..: 4 7 7 7 7 7 7 7 7 3 ...
     ##  - attr(*, "na.action")= 'omit' Named int [1:28] 12765 65754 69394 96807 158857 160780 179790 196741 221925 263543 ...
     ##   ..- attr(*, "names")= chr [1:28] "12765" "65754" "69394" "96807" ...
 
@@ -766,6 +761,8 @@ print(rf_model.accuracy <- sum(diag(rf_model.pred.results)) / sum(rf_model.pred.
 <img src="NHL_xG_files/figure-gfm/unnamed-chunk-2-1.png" width="50%" />
 
 ### xGBoost
+
+To be updated
 
 ## Sources
 

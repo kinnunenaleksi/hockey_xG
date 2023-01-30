@@ -453,10 +453,6 @@ As suspected, lambda value is very small and hence regularization makes very lit
 
 As random forest calculation is computationally heavy and parallel computation is not yet introduced, we will make the dataset even smaller and pivot back to secondaryType explanatory factor (insted of having multiple columns for each shot type)
 ```{r Cleaning Data}
-## Making the train_data smaller due to memory issues 
-
-
-
 parsed_shots.rf <- parsed_shots %>%
   select(goal, distance, angle, secondaryType) %>%
   sample_n(size = 1000)
@@ -469,7 +465,7 @@ parsed_shots.rf$goal <- as.factor(parsed_shots.rf$goal)
 parsed_shots.rf$secondaryType <- as.factor(parsed_shots.rf$secondaryType)
 
 ## Checking all classes are either numerical or factor
-str(train_data)
+str(parsed_shots.rf)
 ```
 
 
@@ -539,6 +535,8 @@ print(rf_model.accuracy <- sum(diag(rf_model.pred.results)) / sum(rf_model.pred.
 ```
 
 ### xGBoost
+
+To be updated
 
 ## Sources 
 
